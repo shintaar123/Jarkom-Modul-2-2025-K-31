@@ -1133,18 +1133,21 @@ service nginx restart
 curl -I http://app.k31.com/
 curl -I http://app.k31.com/about
 ```
+<img width="442" height="266" alt="image" src="https://github.com/user-attachments/assets/b559c75a-daba-4d06-a605-6889652d6fb0" />
+
 ✅ Expected result:
 
 HTTP/1.1 200 OK
-
 Content-Type: text/html; charset=UTF-8
 
 dan jika dicek:
-
+```
 curl http://app.k31.com/about | head
-
+```
 akan menampilkan isi halaman PHP:
 ```
 <h1>About app.k31.com</h1>
 <p>This is the About page...</p>
 ```
+<img width="1204" height="102" alt="image" src="https://github.com/user-attachments/assets/dad8b96c-8368-40f4-a915-bbd3873063b3" />
+
