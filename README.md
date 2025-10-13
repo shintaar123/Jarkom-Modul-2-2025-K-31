@@ -1155,9 +1155,6 @@ akan menampilkan isi halaman PHP:
 #### Soal
 Di muara sungai, Sirion berdiri sebagai reverse proxy. Terapkan path-based routing: /static → Lindon dan /app → Vingilot, sambil meneruskan header Host dan X-Real-IP ke backend. Pastikan Sirion menerima www.<xxxx>.com (kanonik) dan sirion.<xxxx>.com, dan bahwa konten pada /static dan /app di-serve melalui backend yang tepat.
 
-
-## Nomor 11
-#### Soal
 Sirion adalah penghubung antara dunia statis dan dinamis. Konfigurasikan **reverse proxy Nginx** di Sirion (10.79.3.2) agar permintaan ke:
 - `/static/` diarahkan ke **Lindon (10.79.3.5)** — web statis.
 - `/app/` diarahkan ke **Vingilot (10.79.3.6)** — web dinamis (PHP-FPM).
