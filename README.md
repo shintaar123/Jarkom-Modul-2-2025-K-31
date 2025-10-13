@@ -15,13 +15,106 @@
 
 
 ## Nomor 1
-<img width="376" height="296" alt="image" src="https://github.com/user-attachments/assets/e4d9c9ee-10ca-438e-8063-dc9e88c8f838" />
+<img width="926" height="718" alt="image" src="https://github.com/user-attachments/assets/a13f7bd8-96ce-4eaf-8956-78f1a05c2211" />
 
 #### Soal
 Di tepi Beleriand yang porak-poranda, Eonwe merentangkan tiga jalur: Barat untuk Earendil dan Elwing, Timur untuk Círdan, Elrond, Maglor, serta pelabuhan DMZ bagi Sirion, Tirion, Valmar, Lindon, Vingilot. Tetapkan alamat dan default gateway tiap tokoh sesuai glosarium yang sudah diberikan.
 #### Tujuan
 Menentukan konfigurasi alamat IP dan gateway untuk seluruh node agar setiap host dapat saling terhubung melalui router Eonwe.
 #### Step by Step
+```
+- EONWE CONFIG -
+auto eth0
+iface eth0 inet dhcp
+auto eth1
+iface eth1 inet static
+	address 10.79.1.1
+	netmask 255.255.255.0
+auto eth2
+iface eth2 inet static
+	address 10.79.2.1
+	netmask 255.255.255.0
+auto eth3
+iface eth3 inet static
+	address 10.79.3.1
+	netmask 255.255.255.0
+
+- EARENDIL -
+auto eth0
+iface eth0 inet static
+	address 10.79.1.2
+	netmask 255.255.255.0
+	gateway 10.79.1.1
+
+- ELWING -
+auto eth0
+iface eth0 inet static
+	address 10.79.1.3
+	netmask 255.255.255.0
+	gateway 10.79.1.1
+
+- CIRDAN -
+auto eth0
+iface eth0 inet static
+	address 10.79.2.2
+	netmask 255.255.255.0
+	gateway 10.79.2.1
+
+- ELROND -
+auto eth0
+iface eth0 inet static
+	address 10.79.2.3
+	netmask 255.255.255.0
+	gateway 10.79.2.1
+
+- MAGLOR -
+auto eth0
+iface eth0 inet static
+	address 10.79.2.4
+	netmask 255.255.255.0
+	gateway 10.79.2.1
+
+- SIRION -
+auto eth0
+iface eth0 inet static
+	address 10.79.3.2
+	netmask 255.255.255.0
+	gateway 10.79.3.1
+
+- TIRION -
+auto eth0
+iface eth0 inet static
+	address 10.79.3.3
+	netmask 255.255.255.0
+	gateway 10.79.3.1
+
+- VALMAR -
+auto eth0
+iface eth0 inet static
+	address 10.79.3.4
+	netmask 255.255.255.0
+	gateway 10.79.3.1
+
+- LINDON -
+auto eth0
+iface eth0 inet static
+	address 10.79.3.5
+	netmask 255.255.255.0
+	gateway 10.79.3.1
+
+- VINGILOT -
+auto eth0
+iface eth0 inet static
+	address 10.79.3.6
+	netmask 255.255.255.0
+	gateway 10.79.3.1
+```
+```
+# Uji koneksi antar host
+ping -c 3 192.168.1.1
+ping -c 3 192.168.2.1
+ping -c 3 192.168.3.1
+```
 
 ## Nomor 2
 #### Soal
@@ -29,6 +122,17 @@ Angin dari luar mulai berhembus ketika Eonwe membuka jalan ke awan NAT. Pastikan
 #### Tujuan
 Mengaktifkan NAT di router agar seluruh host internal dapat mengakses jaringan eksternal (internet).
 #### Step by Step
+```
+# Instalasi iptables
+apt update && apt install -y iptables
+```
+```
+**DI EONWE**
+nano /root/.bashrc
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE -s 10.79.0.0/16
+echo nameserver 192.168.122.1 > /etc/resolv.conf
+ping google.com -c 2
+```
 
 ## Nomor 3
 #### Soal
@@ -36,6 +140,11 @@ Kabar dari Barat menyapa Timur. Pastikan kelima klien dapat saling berkomunikasi
 #### Tujuan
 Memastikan routing antar subnet berjalan dan semua klien dapat menggunakan DNS eksternal untuk mengunduh paket internet.
 #### Step by Step
+```
+# Tambahkan resolver eksternal di semua host non-router
+echo nameserver 192.168.122.1 > /etc/resolv.conf
+ping google.com -c 2
+```
 
 ## Nomor 4
 #### Soal
@@ -44,6 +153,117 @@ Pada seluruh host non-router ubah urutan resolver menjadi ns1.k31.com → ns2.k3
 #### Tujuan
 Membangun DNS master–slave untuk domain k31.com agar semua host dapat resolve domain secara internal.
 #### Step by Step
+**DI TIRION**
+```
+apt update && apt install bind9 -y
+mkdir -p /etc/bind/zones
+nano /etc/bind/named.conf.options
+options {
+    directory "/var/cache/bind";
+
+    forwarders {
+        192.168.122.1;
+    };
+
+    dnssec-validation auto;
+    listen-on { any; };
+    listen-on-v6 { any; };
+};
+
+nano /etc/bind/named.conf.local
+zone "k31.com" {
+    type master;
+    file "/etc/bind/zones/db.k31.com";
+    notify yes;
+    allow-transfer { 10.79.3.4; }; // Valmar (ns2)
+};
+
+nano /etc/bind/zones/db.k31.com
+$TTL 604800
+@   IN  SOA ns1.k31.com. admin.k31.com. (
+        2025101101 ; Serial
+        3600       ; Refresh
+        1800       ; Retry
+        604800     ; Expire
+        30         ; Minimum TTL
+)
+; --- NS Record ---
+    IN  NS  ns1.k31.com.
+    IN  NS  ns2.k31.com.
+
+; --- A Record ---
+ns1     IN  A   10.79.3.3      ; Tirion (master)
+ns2     IN  A   10.79.3.4      ; Valmar (slave)
+@       IN  A   10.79.3.2      ; Sirion (front door)
+
+; --- Hostname Records ---
+sirion  IN  A   10.79.3.2
+lindon  IN  A   10.79.3.5
+vingilot IN A   10.79.3.6
+
+; --- CNAME (alias) ---
+www     IN  CNAME sirion
+static  IN  CNAME lindon
+app     IN  CNAME vingilot
+```
+```
+// cek kofigurasi
+named-checkconf
+named-checkzone k31.com /etc/bind/zones/db.k31.com
+
+// jalankan bin9
+/usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+
+// cek apakah jalan
+ps aux | grep named
+```
+**DI VALMAR**
+```
+apt update && apt install bind9 -y
+mkdir -p /var/cache/bind
+nano /etc/bind/named.conf.options
+options {
+    directory "/var/cache/bind";
+
+    forwarders {
+        192.168.122.1;
+    };
+
+    dnssec-validation auto;
+    listen-on { any; };
+    listen-on-v6 { any; };
+};
+
+nano /etc/bind/named.conf.local
+zone "k31.com" {
+    type slave;
+    file "/var/cache/bind/db.k31.com";
+    masters { 10.79.3.3; }; // Tirion (master)
+};
+```
+```
+// jalankan manual
+/usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+
+// cek apakan zone transfer berhasil
+ls /var/cache/bind/
+
+// tes dari valmar
+dig @10.79.3.4 k31.com
+```
+**DI SEMUA NODE HOST NON ROUTER**
+```
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+cat /etc/resolv.conf
+
+dig k31.com
+dig ns1.k31.com
+dig sirion.k31.com
+dig www.k31.com
+```
+<img width="1163" height="423" alt="image" src="https://github.com/user-attachments/assets/5c136cf8-3165-4064-b95d-6db3013f6379" />
 
 ## Nomor 5
 #### Soal
