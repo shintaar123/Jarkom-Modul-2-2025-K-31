@@ -133,6 +133,8 @@ iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE -s 10.79.0.0/16
 echo nameserver 192.168.122.1 > /etc/resolv.conf
 ping google.com -c 2
 ```
+set permanen di dalam nano /root/.bashrc
+<img width="816" height="440" alt="image" src="https://github.com/user-attachments/assets/ee2e3def-e8cc-4f5a-8ab2-0b2a5cb8e388" />
 
 ## Nomor 3
 #### Soal
@@ -265,12 +267,371 @@ dig www.k31.com
 ```
 <img width="1163" height="423" alt="image" src="https://github.com/user-attachments/assets/5c136cf8-3165-4064-b95d-6db3013f6379" />
 
+<img width="811" height="486" alt="image" src="https://github.com/user-attachments/assets/52aedda3-57c2-4fc5-97f6-3c732d633837" />
+
+
 ## Nomor 5
 #### Soal
 “Nama memberi arah,” kata Eonwe. Namai semua tokoh (hostname) sesuai glosarium: eonwe, earendil, elwing, cirdan, elrond, maglor, sirion, tirion, valmar, lindon, vingilot. Verifikasi bahwa setiap host mengenali dan menggunakan hostname tersebut secara system-wide. Buat setiap domain untuk masing-masing node sesuai namanya (contoh: eru.k31.com) dan assign IP masing-masing juga. Lakukan pengecualian untuk node yang bertanggung jawab atas ns1 dan ns2.
 #### Tujuan
 Menetapkan hostname dan domain untuk setiap node agar dapat dikenali melalui DNS internal.
 #### Step by Step
+EONWE
+```
+// set hostname
+echo "eonwe" > /etc/hostname
+hostname eonwe
+
+// update /etc/hosts (full list karena router)
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+// set resolver (router boleh tetap pakai upstream)
+echo "nameserver 192.168.122.1" > /etc/resolv.conf
+
+// verify
+hostname
+cat /etc/hostname
+cat /etc/hosts
+cat /etc/resolv.conf
+```
+EARENDIL
+```
+// set hostname
+
+// write /etc/hosts (full list — karena ini client non-DNS)
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+// set resolver priority: Tirion -> Valmar -> upstream
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+// verify
+hostname
+cat /etc/hostname
+cat /etc/hosts
+cat /etc/resolv.conf
+```
+ELWING
+```
+echo "elwing" > /etc/hostname
+hostname elwing
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+hostname
+cat /etc/hostname
+```
+CIRDAN
+```
+echo "cirdan" > /etc/hostname
+hostname cirdan
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+hostname
+cat /etc/hostname
+```
+ELROND
+```
+echo "elrond" > /etc/hostname
+hostname elrond
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+hostname
+cat /etc/hostname
+```
+MAGLOR
+```
+echo "maglor" > /etc/hostname
+hostname maglor
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+hostname
+cat /etc/hostname
+```
+SIRION
+```
+echo "sirion" > /etc/hostname
+hostname sirion
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+hostname
+cat /etc/hostname
+```
+TIRION
+```
+echo "tirion" > /etc/hostname
+hostname tirion
+
+// Minimal hosts only (agar DNS master diuji, jangan masukkan semua hosts)
+cat > /etc/hosts <<'EOF'
+127.0.0.1   localhost
+10.79.3.3   tirion.k31.com   tirion
+EOF
+
+// Ensure bind9 is running (jika belum)
+// kamu sebelumnya install & start bind9 in No.4; kalau belum:
+// apt update && apt install bind9 -y
+// /usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+
+// verify
+hostname
+cat /etc/hostname
+cat /etc/hosts
+```
+VALMAR
+```
+echo "valmar" > /etc/hostname
+hostname valmar
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1   localhost
+10.79.3.4   valmar.k31.com   valmar
+EOF
+
+// Make sure bind9 is installed and slave zone pulled (you did earlier)
+// verify hosts
+hostname
+cat /etc/hosts
+```
+LINDON
+```
+echo "lindon" > /etc/hostname
+hostname lindon
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+hostname
+cat /etc/hostname
+```
+VINGILOT
+```
+echo "vingilot" > /etc/hostname
+hostname vingilot
+
+cat > /etc/hosts <<'EOF'
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+
+10.79.1.1       eonwe.k31.com      eonwe
+10.79.1.2       earendil.k31.com   earendil
+10.79.1.3       elwing.k31.com     elwing
+
+10.79.2.2       cirdan.k31.com     cirdan
+10.79.2.3       elrond.k31.com     elrond
+10.79.2.4       maglor.k31.com     maglor
+
+10.79.3.2       sirion.k31.com     sirion
+10.79.3.3       tirion.k31.com     tirion
+10.79.3.4       valmar.k31.com     valmar
+10.79.3.5       lindon.k31.com     lindon
+10.79.3.6       vingilot.k31.com   vingilot
+EOF
+
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
+
+hostname
+cat /etc/hostname
+```
+Setelah semua node di-set — Verifikasi dari Earendil (atau client mana saja)
+Jalankan ini di console earendil (copy-paste semua):
+```
+// cek FQDN lokal
+hostname
+cat /etc/hostname
+hostname -f || true   # jika hostname -f tidak tersedia, skip
+
+// test lookup via getent (pakai NSS)
+getent hosts eonwe.k31.com
+getent hosts tirion.k31.com
+getent hosts valmar.k31.com
+getent hosts sirion.k31.com
+
+// test dig (DNS harus jawab via Tirion/Valmar)
+dig k31.com
+dig sirion.k31.com
+dig www.k31.com
+
+// ping pake FQDN
+for h in eonwe earendil elwing cirdan elrond maglor sirion tirion valmar lindon vingilot; do
+  echo ">>> ping $h.k31.com"
+  ping -c 1 $h.k31.com || echo "GAGAL: $h.k31.com"
+done
+```
+Yang harus muncul:
+- getent hosts <host> → mengembalikan IP sesuai /etc/hosts atau DNS jika tidak di /etc/hosts (Tirion/Valmar minimal tapi DNS master/slave akan jawab).
+<img width="482" height="209" alt="image" src="https://github.com/user-attachments/assets/d3cde099-7657-425b-861a-8225cd99d725" />
+
+- dig k31.com → ANSWER SECTION berisi 10.79.3.2 (sirion) dan SERVER: menunjukkan 10.79.3.3 (tirion) atau 10.79.3.4 (valmar).
+<img width="725" height="484" alt="image" src="https://github.com/user-attachments/assets/a9ba205d-c09e-49d1-a929-316809617b56" />
+
+- Semua ping harus reply kecuali ada masalah network/topology di GNS3.
 
 ## Nomor 6
 #### Soal
@@ -278,6 +639,72 @@ Lonceng Valmar berdentang mengikuti irama Tirion. Pastikan zone transfer berjala
 #### Tujuan
 Memastikan mekanisme sinkronisasi zona DNS antara master (Tirion) dan slave (Valmar) berjalan otomatis.
 #### Step by Step
+1. Konfigurasi Master (Tirion/ns1)
+```
+nano /etc/bind/named.conf.local
+zone "k31.com" {
+    type master;
+    file "/etc/bind/zones/db.k31.com";
+    notify yes;
+    allow-transfer { 10.79.3.4; }; // Valmar (ns2)
+};
+Cek file zona:
+cat /etc/bind/zones/db.k31.com
+Pastikan ada:
+ $TTL 604800
+@ IN SOA ns1.k31.com. admin.k31.com. (
+    2025101101 ; Serial
+    3600 1800 604800 30
+)
+    IN NS ns1.k31.com.
+    IN NS ns2.k31.com.
+Validasi & restart:
+named-checkconf
+named-checkzone k31.com /etc/bind/zones/db.k31.com
+/usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+```
+2. Konfigurasi Slave (Valmar/ns2)
+```
+nano /etc/bind/named.conf.local
+
+ zone "k31.com" {
+    type slave;
+    file "/var/cache/bind/db.k31.com";
+    masters { 10.79.3.3; }; // Tirion
+};
+Jalankan ulang bind9:
+/usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+```
+3. Cek Zone Transfer
+```
+Di Valmar:
+ ls -l /var/cache/bind/
+ Harus ada file db.k31.com
+File tampil aneh (simbol acak) = normal, karena disimpan dalam format biner.
+```
+4. Bandingkan Serial SOA
+```
+Di Tirion:
+dig @10.79.3.3 k31.com SOA
+Di Valmar:
+dig @10.79.3.4 k31.com SOA
+```
+Nomor serial harus sama di keduanya → zone transfer berhasil ✅
+5. Uji Transfer Otomatis (Opsional)
+```
+Ubah file zona di Tirion, tambahkan: nano /etc/bind/zones/db.k31.com
+test IN A 10.79.3.10
+dan naikkan serial jadi 2025101201.
+```
+Restart bind9 Tirion:
+```
+/usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+Di Valmar, cek:
+dig @10.79.3.4 test.k31.com SOA
+```
+<img width="806" height="430" alt="image" src="https://github.com/user-attachments/assets/7d67d29f-ab9c-4648-9329-16a3e5f51982" />
+
+Jika muncul IP → update otomatis sukses ✅
 
 ## Nomor 7
 #### Soal
@@ -289,6 +716,84 @@ Verifikasi dari dua klien berbeda bahwa seluruh hostname tersebut ter-resolve ke
 #### Tujuan
 Menambahkan record DNS untuk layanan web utama dan aliasnya agar seluruh hostname domain dapat diakses dengan benar dari seluruh host.
 #### Step by Step
+Konfigurasi di Tirion (Master DNS)
+```
+nano /etc/bind/zones/db.k31.com
+Tambahkan:
+$TTL 604800
+@   IN  SOA ns1.k31.com. admin.k31.com. (
+        2025101201 ; Serial (harus dinaikkan setiap update)
+        3600
+        1800
+        604800
+        30
+)
+; --- NS Record ---
+    IN  NS  ns1.k31.com.
+    IN  NS  ns2.k31.com.
+
+; --- A Record ---
+ns1     IN  A   10.79.3.3
+ns2     IN  A   10.79.3.4
+sirion  IN  A   10.79.3.2
+lindon  IN  A   10.79.3.5
+vingilot IN A   10.79.3.6
+
+; --- CNAME Record ---
+www     IN  CNAME sirion
+static  IN  CNAME lindon
+app     IN  CNAME vingilot
+```
+🟢 Penjelasan:
+- A record → menghubungkan domain ke IP Address.
+- CNAME → alias, jadi www.k31.com mengarah ke sirion.k31.com tanpa duplikasi IP.
+- Serial harus dinaikkan agar slave tahu zona berubah.
+
+4. Restart & Validasi Master
+```
+named-checkzone k31.com /etc/bind/zones/db.k31.com
+named-checkconf
+/usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+```
+✅ Output: zone k31.com/IN: loaded serial 2025101201
+
+5. Cek Sinkronisasi di Valmar (Slave)
+Node: Valmar
+Pastikan file hasil transfer ada:
+```
+ls -l /var/cache/bind/
+```
+Verifikasi record:
+```
+dig @10.79.3.4 sirion.k31.com A
+dig @10.79.3.4 lindon.k31.com A
+dig @10.79.3.4 vingilot.k31.com A
+dig @10.79.3.4 www.k31.com CNAME
+dig @10.79.3.4 static.k31.com CNAME
+dig @10.79.3.4 app.k31.com CNAME
+```
+7. Uji dari Dua Klien
+
+Node: Earendil dan Elrond
+
+🔹 Tes query DNS:
+```
+dig sirion.k31.com
+dig www.k31.com
+dig static.k31.com
+dig app.k31.com
+```
+<img width="709" height="478" alt="image" src="https://github.com/user-attachments/assets/d08fa78a-45ca-4216-97d3-904b8beeb6a0" />
+<img width="709" height="491" alt="image" src="https://github.com/user-attachments/assets/4e1f720a-f02a-44c8-9e8d-6623cfc65b06" />
+
+🔹 Tes konektivitas:
+```
+ping -c 2 sirion.k31.com
+ping -c 2 static.k31.com
+ping -c 2 app.k31.com
+```
+<img width="741" height="168" alt="image" src="https://github.com/user-attachments/assets/966d0c14-6a34-4c8b-9031-273aa634718a" />
+
 
 ## Nomor 8
 #### Soal
