@@ -690,6 +690,7 @@ Di Valmar:
 dig @10.79.3.4 k31.com SOA
 ```
 Nomor serial harus sama di keduanya → zone transfer berhasil ✅
+
 5. Uji Transfer Otomatis (Opsional)
 ```
 Ubah file zona di Tirion, tambahkan: nano /etc/bind/zones/db.k31.com
