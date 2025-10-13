@@ -802,6 +802,122 @@ Setiap jejak harus bisa diikuti. Di Tirion (ns1) deklarasikan satu reverse zone 
 #### Tujuan
 Membuat reverse DNS zone agar setiap alamat IP di DMZ dapat dikembalikan ke hostname yang sesuai.
 #### Step by Step
+Tirion (10.79.3.3) — buka console Tirion, jalankan perintah ini persis.
+Edit named.conf.local untuk tambahkan reverse zone (atau tambahkan blok baru jika sudah ada):
+```
+cat >> /etc/bind/named.conf.local <<'EOF'
+
+zone "3.79.10.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.10.79.3";
+    notify yes;
+    allow-transfer { 10.79.3.4; };  // Valmar (ns2)
+};
+EOF
+```
+Buat file zone reverse /etc/bind/zones/db.10.79.3 (isi lengkap):
+```
+// Node: Tirion
+cat > /etc/bind/zones/db.10.79.3 <<'EOF'
+$TTL 604800
+@   IN  SOA ns1.k31.com. admin.k31.com. (
+        2025101201 ; Serial - naikkan tiap perubahan
+        3600       ; Refresh
+        1800       ; Retry
+        604800     ; Expire
+        30         ; Minimum TTL
+)
+        IN  NS  ns1.k31.com.
+        IN  NS  ns2.k31.com.
+
+; PTR records for DMZ 10.79.3.0/24
+2       IN  PTR sirion.k31.com.
+5       IN  PTR lindon.k31.com.
+6       IN  PTR vingilot.k31.com.
+EOF
+```
+Validasi zone file & konfigurasi:
+```
+// Node: Tirion
+named-checkzone 3.79.10.in-addr.arpa /etc/bind/zones/db.10.79.3
+named-checkconf
+
+Restart bind di Tirion:
+pkill named || true; /usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+
+Verifikasi local (di Tirion) bahwa PTR bekerja:
+// Node: Tirion
+dig @10.79.3.3 -x 10.79.3.2 +short   # harus mengembalikan sirion.k31.com.
+dig @10.79.3.3 -x 10.79.3.5 +short   # harus mengembalikan lindon.k31.com.
+dig @10.79.3.3 -x 10.79.3.6 +short   # harus mengembalikan vingilot.k31.com.
+```
+Valmar (10.79.3.4) — buka console Valmar.
+Tambahkan deklarasi zone slave di named.conf.local (Valmar):
+```
+// Node: Valmar
+cat >> /etc/bind/named.conf.local <<'EOF'
+
+zone "3.79.10.in-addr.arpa" {
+    type slave;
+    file "/var/cache/bind/db.10.79.3";
+    masters { 10.79.3.3; };  // Tirion (master)
+};
+EOF
+```
+Restart bind (atau jalankan named):
+```
+pkill named || true; /usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+```
+Periksa apakah slave mendapat file zone:
+```
+// Node: Valmar
+ls -l /var/cache/bind/ | grep db.10.79.3 || true
+// Jika ada file, lanjut cek isi via dig (lebih aman karena file bisa biner)
+dig @10.79.3.4 3.79.10.in-addr.arpa SOA
+```
+1) Di Tirion (cek master)
+```
+// Node: Tirion
+dig @10.79.3.3 -x 10.79.3.2   ;# sirion
+dig @10.79.3.3 -x 10.79.3.5   ;# lindon
+dig @10.79.3.3 -x 10.79.3.6   ;# vingilot
+
+// Perhatikan: di ANSWER SECTION harus ada PTR yang benar
+// Dan header/flags harus menunjukkan authoritative (aa)
+```
+2) Di Valmar (cek slave)
+```
+// Node: Valmar
+dig @10.79.3.4 -x 10.79.3.2
+dig @10.79.3.4 -x 10.79.3.5
+dig @10.79.3.4 -x 10.79.3.6
+```
+3) Di dua client (Earendil & Elrond) — objek test dari client
+```
+// Node: Earendil
+dig -x 10.79.3.2
+dig -x 10.79.3.5
+dig -x 10.79.3.6
+
+// Node: Elrond
+dig -x 10.79.3.2
+dig -x 10.79.3.5
+dig -x 10.79.3.6
+```
+Bandingkan SOA / Serial & Cek Log
+```
+Pastikan serial reverse zone di master = serial di slave:
+// Node: Tirion
+dig @10.79.3.3 3.79.10.in-addr.arpa SOA | grep SOA
+
+// Node: Valmar
+dig @10.79.3.4 3.79.10.in-addr.arpa SOA | grep SOA
+
+// Angka serial harus sama.
+```
+<img width="810" height="100" alt="image" src="https://github.com/user-attachments/assets/cc1d54d7-8e4a-4afa-a10f-918173888bf6" />
+
+<img width="812" height="105" alt="image" src="https://github.com/user-attachments/assets/088507c1-c8ef-4853-b840-07390da80df5" />
 
 ## Nomor 9
 #### Soal
@@ -809,6 +925,123 @@ Lampion Lindon dinyalakan. Jalankan web statis pada hostname static.k31.com dan 
 #### Tujuan
 Menjalankan web statis menggunakan Nginx di node Lindon dengan autoindex aktif untuk menampilkan isi direktori.
 #### Step by Step
+Perintah di Lindon (jalankan semua ini di console Lindon)
+1) Install nginx
+```
+apt update && apt install -y nginx
+```
+2) Buat folder web untuk /annals/ dan tambahkan file contoh
+```
+mkdir -p /var/www/annals
+// isi beberapa file contoh agar directory listing terlihat
+echo "Annual report 2023" > /var/www/annals/report-2023.txt
+echo "Logbook 2024" > /var/www/annals/log-2024.txt
+// pastikan owner/nginx dapat baca
+chown -R www-data:www-data /var/www/annals
+chmod -R 755 /var/www/annals
+```
+3) Buat server block nginx untuk static.k31.com
+```
+cat > /etc/nginx/sites-available/static.k31.com <<'EOF'
+server {
+    listen 80;
+    server_name static.k31.com;
+
+    // root kita di /var/www (so URL /annals/ -> /var/www/annals)
+    root /var/www;
+
+    access_log /var/log/nginx/static_access.log;
+    error_log  /var/log/nginx/static_error.log;
+
+    // Pastikan /annals/ memiliki directory listing (autoindex)
+    location /annals/ {
+        autoindex on;
+        autoindex_exact_size off;   # tampilkan ukuran lebih ramah
+        autoindex_localtime on;
+        allow all;
+    }
+
+    # Optional: block PHP execution (we only want static)
+    location ~ \.php$ {
+        return 404;
+    }
+}
+EOF
+```
+4) Aktifkan site, disable default (opsional) dan restart nginx
+```
+ln -s /etc/nginx/sites-available/static.k31.com /etc/nginx/sites-enabled/static.k31.com
+// disable default to avoid conflict (optional)
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+service nginx restart
+
+Klo error
+rm /etc/nginx/sites-enabled/static.k31.com
+ln -s /etc/nginx/sites-available/static.k31.com /etc/nginx/sites-enabled/static.k31.com
+```
+5) Verifikasi di Lindon (lokal)
+```
+// cek nginx listening
+ss -ltnp | grep ':80' || netstat -ltnp | grep ':80'
+
+// tes akses lokal (Host header tidak penting jika IP langsung)
+curl -I http://localhost/annals/
+// atau lihat listing HTML
+curl http://localhost/annals/
+
+Klo error
+nano /etc/nginx/sites-available/static.k31.com 
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name static.k31.com;
+
+    root /var/www/static.k31.com;
+    index index.html;
+}
+```
+Pastikan DNS (harus sudah ada dari No.7)
+Di Lindon (atau Tirion) cek:
+```
+dig @10.79.3.3 static.k31.com A +short
+dig @10.79.3.4 static.k31.com A +short
+```
+Verifikasi dari dua klien (Earendil & Elrond)
+```
+1) Di Earendil:
+// cek resolv.conf memastikan DNS Tirion/Valmar
+cat /etc/resolv.conf
+```
+<img width="396" height="89" alt="image" src="https://github.com/user-attachments/assets/a83f856a-0af0-4972-9ac8-00c84cd5f76b" />
+
+```
+// cek DNS resolve
+dig static.k31.com +short
+```
+<img width="446" height="56" alt="image" src="https://github.com/user-attachments/assets/8d8d80cd-6137-4db8-9ab7-9a54aec1b1a0" />
+
+```
+// buka listing
+curl -I http://static.k31.com/annals/
+curl http://static.k31.com/annals/   // lihat HTML listing, harus ada file links
+// atau gunakan browser di host PC jika port forwarding di GNS3
+```
+<img width="553" height="122" alt="image" src="https://github.com/user-attachments/assets/1f2b79cf-4f9b-41fc-819d-49ad750255ab" />
+
+<img width="982" height="185" alt="image" src="https://github.com/user-attachments/assets/0dc527c2-5fa8-4b4b-93da-e12749691d9c" />
+
+```
+2) Di Elrond:
+dig static.k31.com +short
+curl -I http://static.k31.com/annals/
+curl http://static.k31.com/annals/ | head -n 40
+```
+<img width="428" height="67" alt="image" src="https://github.com/user-attachments/assets/9481c69d-c2e3-4b10-8568-24dcbacae7d8" />
+
+<img width="562" height="130" alt="image" src="https://github.com/user-attachments/assets/f8d99953-8b50-44e4-bdb5-61ba87d96893" />
+
+<img width="978" height="247" alt="image" src="https://github.com/user-attachments/assets/b93e579d-b4c1-4f83-bee0-2d78142c5dec" />
 
 ## Nomor 10
 #### Soal
@@ -816,3 +1049,102 @@ Vingilot mengisahkan cerita dinamis. Jalankan web dinamis (PHP-FPM) pada hostnam
 #### Tujuan
 Menjalankan web dinamis dengan PHP-FPM dan konfigurasi rewrite agar URL bersih dapat diakses di Vingilot.
 #### Step by Step
+**DI VINGILOT**
+
+1️⃣ Instal Nginx dan PHP-FPM
+```
+apt update && apt install -y nginx php-fpm
+apt update && apt install -y php php-fpm
+```
+2️⃣ Pastikan PHP-FPM aktif dan socket terbuat
+```
+ls /etc/init.d/ | grep fpm
+service php8.4-fpm start
+ls -l /run/php
+```
+🔹 Pastikan muncul file seperti /run/php/php8.4-fpm.sock
+
+3️⃣ Buat folder web dan isi file PHP
+```
+mkdir -p /var/www/app
+chown -R www-data:www-data /var/www/app
+chmod -R 755 /var/www/app
+```
+📄 File /var/www/app/index.php
+```
+cat > /var/www/app/index.php <<'EOF'
+<?php
+echo "<h1>Welcome to app.k31.com</h1>";
+echo "<p>This is the homepage served by PHP-FPM on Vingilot.</p>";
+echo "<p><a href='/about'>About</a></p>";
+?>
+EOF
+```
+📄 File /var/www/app/about.php
+```
+cat > /var/www/app/about.php <<'EOF'
+<?php
+echo "<h1>About app.k31.com</h1>";
+echo "<p>This is the About page. URL without .php should work: /about</p>";
+echo "<p><a href='/'>Home</a></p>";
+?>
+EOF
+```
+4️⃣ Konfigurasi Nginx untuk app.k31.com
+Buat file:
+```
+nano /etc/nginx/sites-available/app.k31.com
+Isi dengan:
+server {
+    listen 80;
+    server_name app.k31.com;
+    root /var/www/app;
+    index index.php index.html;
+    access_log /var/log/nginx/app_access.log;
+    error_log  /var/log/nginx/app_error.log;
+    # Arahkan root ke index.php
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+    # Rewrite agar /about tanpa .php tetap jalan
+    location = /about {
+        rewrite ^ /about.php last;
+    }
+    # Jalankan PHP lewat PHP-FPM
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+    }
+}
+```
+5️⃣ Aktifkan konfigurasi dan hapus default
+```
+ln -sf /etc/nginx/sites-available/app.k31.com /etc/nginx/sites-enabled/app.k31.com
+rm -f /etc/nginx/sites-enabled/default
+```
+6️⃣ Tes konfigurasi & restart nginx
+```
+nginx -t
+service nginx restart
+```
+7️⃣ Tes hasil
+```
+curl -I http://app.k31.com/
+curl -I http://app.k31.com/about
+```
+✅ Expected result:
+
+HTTP/1.1 200 OK
+
+Content-Type: text/html; charset=UTF-8
+
+dan jika dicek:
+
+curl http://app.k31.com/about | head
+
+akan menampilkan isi halaman PHP:
+```
+<h1>About app.k31.com</h1>
+<p>This is the About page...</p>
+```
