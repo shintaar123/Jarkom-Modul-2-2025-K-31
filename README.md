@@ -53,11 +53,40 @@ Menetapkan hostname dan domain untuk setiap node agar dapat dikenali melalui DNS
 #### Step by Step
 
 ## Nomor 6
+#### Soal
+Lonceng Valmar berdentang mengikuti irama Tirion. Pastikan zone transfer berjalan, pastikan Valmar (ns2) telah menerima salinan zona terbaru dari Tirion (ns1). Nilai serial SOA di keduanya harus sama.
+#### Tujuan
+Memastikan mekanisme sinkronisasi zona DNS antara master (Tirion) dan slave (Valmar) berjalan otomatis.
+#### Step by Step
 
 ## Nomor 7
+#### Soal
+Peta kota dan pelabuhan dilukis. Sirion sebagai gerbang, Lindon sebagai web statis, Vingilot sebagai web dinamis. Tambahkan pada zona k31.com A record untuk sirion.k31.com (IP Sirion), lindon.k31.com (IP Lindon), dan vingilot.k31.com (IP Vingilot). Tetapkan CNAME:
+www.k31.com → sirion.k31.com
+static.k31.com → lindon.k31.com
+app.k31.com → vingilot.k31.com
+Verifikasi dari dua klien berbeda bahwa seluruh hostname tersebut ter-resolve ke tujuan yang benar dan konsisten.
+#### Tujuan
+Menambahkan record DNS untuk layanan web utama dan aliasnya agar seluruh hostname domain dapat diakses dengan benar dari seluruh host.
+#### Step by Step
 
 ## Nomor 8
+#### Soal
+Setiap jejak harus bisa diikuti. Di Tirion (ns1) deklarasikan satu reverse zone untuk segmen DMZ tempat Sirion, Lindon, dan Vingilot berada. Di Valmar (ns2) tarik reverse zone tersebut sebagai slave, isi PTR untuk ketiga hostname itu agar pencarian balik IP address mengembalikan hostname yang benar, lalu pastikan query reverse untuk alamat Sirion, Lindon, dan Vingilot dijawab authoritative.
+#### Tujuan
+Membuat reverse DNS zone agar setiap alamat IP di DMZ dapat dikembalikan ke hostname yang sesuai.
+#### Step by Step
 
 ## Nomor 9
+#### Soal
+Lampion Lindon dinyalakan. Jalankan web statis pada hostname static.k31.com dan buka folder arsip /annals/ dengan autoindex (directory listing) sehingga isinya dapat ditelusuri. Akses harus dilakukan melalui hostname, bukan IP.
+#### Tujuan
+Menjalankan web statis menggunakan Nginx di node Lindon dengan autoindex aktif untuk menampilkan isi direktori.
+#### Step by Step
 
 ## Nomor 10
+#### Soal
+Vingilot mengisahkan cerita dinamis. Jalankan web dinamis (PHP-FPM) pada hostname app.k31.com dengan beranda dan halaman about, serta terapkan rewrite sehingga /about berfungsi tanpa akhiran .php. Akses harus dilakukan melalui hostname.
+#### Tujuan
+Menjalankan web dinamis dengan PHP-FPM dan konfigurasi rewrite agar URL bersih dapat diakses di Vingilot.
+#### Step by Step
