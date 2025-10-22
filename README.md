@@ -1219,12 +1219,56 @@ Hasil Verifikasi
 Pengujian dilakukan dari node klien (misal: Earendil) untuk mengakses backend melalui reverse proxy (Sirion).
 
 1. Tes Rute Statis (ke Lindon) Perintah ini membuktikan bahwa www.k31.com/static/annals/ berhasil diteruskan oleh Sirion ke Lindon, yang mengembalikan directory listing dari Nomor 9.
+```bash
+Bash
+# Di Earendil
+curl http://www.k31.com/static/annals/
+```
+<img width="1033" height="176" alt="Image" src="https://github.com/user-attachments/assets/9baeb5a7-805c-4834-bb80-d74538167913" />
+2. Tes Rute Dinamis (ke Vingilot - Homepage) Perintah ini membuktikan bahwa www.k31.com/app/ berhasil diteruskan oleh Sirion ke Vingilot, yang mengembalikan halaman index.php dari Nomor 10.
+```bash
+Bash
+# Di Earendil
+curl http://www.k31.com/app/
+```
+<img width="1111" height="152" alt="Image" src="https://github.com/user-attachments/assets/e0337cfd-1596-4748-afe6-3a84de8b5229" />
 
+3. Tes Rute Dinamis + Rewrite (ke Vingilot - About) Perintah ini membuktikan bahwa www.k31.com/app/about berhasil diteruskan oleh Sirion ke Vingilot, yang kemudian me-render halaman about.php (hasil rewrite) dari Nomor 10.
+```bash
 Bash
 
 # Di Earendil
-```curl http://www.k31.com/static/annals/```
-<img width="1109" height="283" alt="Image" src="https://github.com/user-attachments/assets/567c0745-f90d-46c5-893a-53f5c8696913" />
+curl http://www.k31.com/app/about
+```
+<img width="1088" height="232" alt="Image" src="https://github.com/user-attachments/assets/c55134d8-adf3-445d-9cbb-2a266697896d" />
+
+
+
+## Nomor 12
+#### Soal
+Ada kamar kecil di balik gerbang yakni /admin. Lindungi path tersebut di Sirion menggunakan Basic Auth, akses tanpa kredensial harus ditolak dan akses dengan kredensial yang benar harus diizinkan.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # REVISI
 #### Permasalahan Awal
