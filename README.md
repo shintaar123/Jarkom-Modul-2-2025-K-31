@@ -1389,7 +1389,7 @@ curl -I http://www.k31.com/app/
 (Output harus menunjukkan HTTP/1.1 200 OK (atau HTTP/2 200 dsb). Ini membuktikan server melayani permintaan dan berhasil mem-proxy-nya ke backend.)
 
 
-## Nomor 13
+## Nomor 14
 #### Soal
 Di Vingilot, catatan kedatangan harus jujur. Pastikan access log aplikasi di Vingilot mencatat IP address klien asli saat lalu lintas melewati Sirion (bukan IP Sirion).
 
@@ -1461,10 +1461,47 @@ Contoh Output yang Diharapkan:
 
 
 
+## Nomor 15
+#### Soal
+Pelabuhan diuji gelombang kecil, salah satu klien yakni Elrond menjadi penguji dan menggunakan ApacheBench (ab) untuk membombardir http://www.<xxxx>.com/app/ dan http://www.<xxxx>.com/static/ melalui hostname kanonik. Untuk setiap endpoint lakukan 500 request dengan concurrency 10, dan rangkum hasil dalam tabel ringkas.
+
+Tujuan: Menguji performa reverse proxy (Sirion) dan backend (Lindon & Vingilot) menggunakan tool ApacheBench (ab) dari node klien (Elrond). Pengujian dilakukan dengan 500 total permintaan (-n 500) dan 10 koneksi konkuren (-c 10).
+Konfigurasi (di Elrond):
+
+Paket apache2-utils (yang berisi ab) diinstal di Elrond.
 
 
+Hasil Verifikasi
+Pengujian dilakukan dari node Elrond.
 
+1. Tes Endpoint Dinamis (/app/ → Vingilot) Perintah ini menguji seberapa cepat backend dinamis (PHP-FPM) merespons di bawah beban.
+```
+Bash
 
+# Perintah yang dijalankan di Elrond:
+ab -n 500 -c 10 http://www.k31.com/app/
+```
+
+<img width="1919" height="1017" alt="Image" src="https://github.com/user-attachments/assets/a0d69454-d71c-47d0-8c34-b3a59bfe1fb8" />
+(Ambil screenshot penuh dari output di terminal Elrond, mulai dari "This is ApacheBench..." sampai "Finished 500 requests".)
+
+2. Tes Endpoint Statis (/static/ → Lindon) Perintah ini menguji seberapa cepat backend statis (Nginx) merespons di bawah beban.
+```
+Bash
+
+# Perintah yang dijalankan di Elrond:
+ab -n 500 -c 10 http://www.k31.com/static/
+```
+
+<img width="1911" height="1029" alt="Image" src="https://github.com/user-attachments/assets/b015a081-ebb3-4255-a44f-79daa7c60f14" />
+(Ambil screenshot penuh dari output di terminal Elrond untuk tes kedua ini.)
+
+3. Rangkuman Hasil
+
+Salin angka-angka kunci dari screenshot Anda ke dalam tabel ini.
+Endpoint,Total Requests,Concurrency,Requests/Second,Time per Request (ms),Failed Requests
+/app/ (Dinamis),500,10,"[Isi dari ""Requests per second""]","[Isi dari ""Time per request""]","[Isi dari ""Failed requests""]"
+/static/ (Statis),500,10,"[Isi dari ""Requests per second""]","[Isi dari ""Time per request""]","[Isi dari ""Failed requests""]"
 
 
 
