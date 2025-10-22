@@ -1652,7 +1652,50 @@ curl http://www.k31.com/app/about
 
 
 
+## Nomor 18
+#### Soal
+Sang musuh memiliki banyak nama. Tambahkan melkor.<xxxx>.com sebagai record TXT berisi “Morgoth (Melkor)” dan tambahkan morgoth.<xxxx>.com sebagai CNAME → melkor.<xxxx>.com, verifikasi query TXT terhadap melkor dan bahwa query ke morgoth mengikuti aliasnya.
 
+Tujuan: Menambahkan dua record DNS baru: melkor.k31.com sebagai TXT record (berisi teks) dan morgoth.k31.com sebagai CNAME (alias) yang menunjuk ke melkor.k31.com.
+
+Konfigurasi (di Tirion):
+
+File zona db.k31.com di Tirion (Master DNS) diedit untuk menambahkan dua record baru. Nomor Serial SOA juga dinaikkan untuk memastikan perubahan ini disinkronisasi ke slave.
+```
+DNS Zone file
+
+# ... (File db.k31.com) ...
+
+; --- TAMBAHAN UNTUK SOAL 18 ---
+melkor   IN  TXT     "Morgoth (Melkor)"
+morgoth  IN  CNAME   melkor
+; --- BATAS TAMBAHAN ---
+```
+
+Layanan BIND9 di Tirion dan Valmar kemudian di-restart untuk menerapkan perubahan.
+
+Hasil Verifikasi
+Pengujian dilakukan dari node klien (misal: Earendil) untuk memverifikasi kedua record baru tersebut.
+
+1. Tes TXT Record (melkor.k31.com) Perintah ini secara spesifik meminta TXT record untuk melkor.k31.com.
+```
+Bash
+
+# Di Earendil:
+dig melkor.k31.com TXT
+```
+<img width="1091" height="522" alt="Image" src="https://github.com/user-attachments/assets/936f399c-1fda-492d-8f17-e37e47ea7d69" />
+[SCREENSHOT 1: Tampilkan output dig melkor.k31.com TXT. Screenshot harus jelas menunjukkan ANSWER SECTIONyang berisimelkor.k31.com. ... IN TXT "Morgoth (Melkor)".]
+
+2. Tes CNAME (morgoth.k31.com) Perintah ini meminta record A (default) untuk morgoth.k31.com, yang seharusnya mengembalikan CNAME-nya.
+```
+Bash
+# Di Earendil:
+dig morgoth.k31.com
+```
+
+<img width="1012" height="584" alt="Image" src="https://github.com/user-attachments/assets/13d66518-f83d-4bb1-af31-24d235596b31" />
+[SCREENSHOT 2: Tampilkan output dig morgoth.k31.com. Screenshot harus jelas menunjukkan ANSWER SECTIONyang berisimorgoth.k31.com. ... IN CNAME melkor.k31.com..]
 
 
 
