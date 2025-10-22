@@ -1013,12 +1013,14 @@ Verifikasi dari dua klien (Earendil & Elrond)
 // cek resolv.conf memastikan DNS Tirion/Valmar
 cat /etc/resolv.conf
 ```
+
 <img width="396" height="89" alt="image" src="https://github.com/user-attachments/assets/a83f856a-0af0-4972-9ac8-00c84cd5f76b" />
 
 ```
 // cek DNS resolve
 dig static.k31.com +short
 ```
+
 <img width="446" height="56" alt="image" src="https://github.com/user-attachments/assets/8d8d80cd-6137-4db8-9ab7-9a54aec1b1a0" />
 
 ```
@@ -1037,6 +1039,7 @@ dig static.k31.com +short
 curl -I http://static.k31.com/annals/
 curl http://static.k31.com/annals/ | head -n 40
 ```
+
 <img width="428" height="67" alt="image" src="https://github.com/user-attachments/assets/9481c69d-c2e3-4b10-8568-24dcbacae7d8" />
 
 <img width="562" height="130" alt="image" src="https://github.com/user-attachments/assets/f8d99953-8b50-44e4-bdb5-61ba87d96893" />
@@ -1177,3 +1180,81 @@ rm -f /etc/nginx/sites-enabled/*
 rm -f /etc/nginx/sites-available/*
 mkdir -p /var/www/sirion
 mkdir -p /var/log/nginx/
+```
+
+# REVISI
+#### Permasalahan Awal
+Saat dilakukan pengujian pada node (misalnya Earendil) dengan perintah:
+```
+host 10.79.3.2
+```
+hasil yang muncul adalah:
+
+<img width="517" height="43" alt="image" src="https://github.com/user-attachments/assets/6f114f11-3f00-4b78-8747-9393cb84646f" />
+
+#### Langkah Perbaikan
+
+(MULAI KONFIGURASI NO 5)
+
+1. Perbaikan konfigurasi /etc/bind/named.conf.options di Tirion
+2. Di Tirion
+/etc/bind/named.conf.local
+```
+zone "k31.com" {
+    type master;
+    file "/etc/bind/zones/db.k31.com";
+    allow-transfer { 10.79.3.4; };
+};
+
+zone "3.79.10.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.10.79.3";
+    allow-transfer { 10.79.3.4; };
+};
+```
+/etc/bind/zones/db.10.79.3
+```
+$TTL 604800
+@ IN SOA ns1.k31.com. root.k31.com. (
+    2025102201 ; Serial
+    604800 ; Refresh
+    86400 ; Retry
+    2419200 ; Expire
+    604800 ) ; Negative Cache TTL
+
+@ IN NS ns1.k31.com.
+@ IN NS ns2.k31.com.
+
+2 IN PTR sirion.k31.com.
+3 IN PTR tirion.k31.com.
+4 IN PTR valmar.k31.com.
+5 IN PTR lindon.k31.com.
+6 IN PTR vingilot.k31.com.
+```
+3. Di Valmar (Slave)
+/etc/bind/named.conf.local
+```
+zone "k31.com" {
+    type slave;
+    masters { 10.79.3.3; };
+    file "/var/cache/bind/db.k31.com";
+};
+
+zone "3.79.10.in-addr.arpa" {
+    type slave;
+    masters { 10.79.3.3; };
+    file "/var/cache/bind/db.10.79.3";
+};
+```
+4. DI TIRION & VALMAR
+```
+pkill named
+/usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+```
+5. Uji ulang konektivitas DNS
+
+Dari node Earendil (atau node lain mana pun): host 10.79.3.2
+
+#### Hasil Akhir
+
+<img width="653" height="41" alt="image" src="https://github.com/user-attachments/assets/277e5240-b77b-4055-8ecf-92e49e8e5249" />
