@@ -1,85 +1,56 @@
 #!/bin/bash
-# ================================
-# Soal 15 - Uji Koneksi & Load Testing
-# Tujuan:
-# 1. Melakukan koneksi ke server via Telnet untuk analisis stabilitas koneksi.
-# 2. Menguji performa endpoint dinamis & statis menggunakan ApacheBench (ab).
-# ================================
-
-# --------------------------------
-# Bagian 1: Uji Koneksi via Telnet
-# --------------------------------
-echo "[+] Menguji koneksi ke server 10.15.43.32 pada port 5484..."
-telnet 10.15.43.32 5484
-
-# Analisis:
-# - Telnet berhasil terkoneksi:
-#     Trying 10.15.43.32...
-#     Connected to 10.15.43.32.
-#     Escape character is '^]'.
-# - Namun respon lambat (lag), kemungkinan disebabkan oleh:
-#     1. Server overload atau proses di port 5484 berat.
-#     2. Latency jaringan tinggi.
-#     3. Firewall atau IDS menunda paket TCP sebagian.
 #
-# Kesimpulan:
-# Koneksi berhasil, tetapi respons lambat — indikasi potensi bottleneck di sisi server.
+# Skrip Pengerjaan Soal 15 - Uji Beban (ApacheBench)
+#
+# Skrip ini akan dijalankan di ELROND untuk:
+# 1. Menginstal 'apache2-utils' (termasuk 'ab').
+# 2. Menjalankan 2 tes 'ab' ke server www.k31.com.
+#
 
-# --------------------------------
-# Bagian 2: Load Testing (ApacheBench)
-# --------------------------------
+# Hentikan skrip jika ada perintah yang gagal
+set -e
 
-echo "[+] Memulai pengujian performa endpoint menggunakan ApacheBench..."
-apt update -y
-apt install apache2-utils -y
+echo "[Soal 15] Memulai skrip di Elrond..."
 
-# 1. Uji Endpoint Dinamis (Vingilot)
-echo "[+] Uji endpoint dinamis (/app/)..."
-ab -n 500 -c 10 -k "https://www.k31.com/app/"
+# --- 1. Perbaikan DNS Sementara & Instalasi ---
+echo "[Soal 15] Mengkonfigurasi DNS eksternal sementara untuk instalasi..."
+echo "nameserver 192.168.122.1" > /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
-# Hasil Pengujian (/app/):
-# Complete requests:      500
-# Failed requests:        0
-# Requests per second:    94.69 [#/sec] (mean)
-# Time per request:       105.609 [ms] (mean)
-# Transfer rate:          22.19 [Kbytes/sec] received
-# 100% requests selesai dalam 458 ms (longest request)
+echo "[Soal 15] Menjalankan apt-get update..."
+apt-get update > /dev/null
 
-# 2. Uji Endpoint Statis (Lindon)
-echo "[+] Uji endpoint statis (/static/)..."
-ab -n 500 -c 10 -k "https://www.k31.com/static/"
+echo "[Soal 15] Menginstal apache2-utils (untuk 'ab')..."
+apt-get install -y apache2-utils > /dev/null
+echo "[Soal 15] 'ab' (apache2-utils) berhasil diinstal."
 
-# Hasil Pengujian (/static/):
-# Complete requests:      500
-# Failed requests:        0
-# Requests per second:    99.48 [#/sec] (mean)
-# Time per request:       100.524 [ms] (mean)
-# Transfer rate:          23.32 [Kbytes/sec] received
-# 100% requests selesai dalam 303 ms (longest request)
+# --- 2. Mengembalikan Konfigurasi DNS Internal (WAJIB) ---
+echo "[Soal 15] Mengembalikan DNS internal (Tirion/Valmar) agar bisa resolve 'k31.com'..."
+echo "nameserver 10.79.3.3" > /etc/resolv.conf
+echo "nameserver 10.79.3.4" >> /etc/resolv.conf
+echo "nameserver 192.168.122.1" >> /etc/resolv.conf
 
-# --------------------------------
-# Ringkasan Hasil
-# --------------------------------
-echo
-echo "+-------------------+----------------+-------------+------------------------+----------------+"
-echo "| Endpoint          | Total Requests | Concurrency | Requests per Second    | Failed Requests|"
-echo "+-------------------+----------------+-------------+------------------------+----------------+"
-echo "| Dinamis (/app/)   | 500            | 10          | 94.69                  | 0              |"
-echo "| Statis (/static/) | 500            | 10          | 99.48                  | 0              |"
-echo "+-------------------+----------------+-------------+------------------------+----------------+"
+echo "[Soal 15] Konfigurasi DNS dikembalikan."
+sleep 1 # Jeda singkat untuk memastikan file I/O selesai
 
-# --------------------------------
-# Analisis Akhir
-# --------------------------------
-# Kedua endpoint stabil (tidak ada request gagal).
-# Endpoint statis (/static/) memiliki performa lebih tinggi (99.48 vs 94.69 req/s).
-# Penyebab:
-#    - Endpoint statis langsung disajikan oleh Nginx (file cache, tanpa PHP).
-#    - Endpoint dinamis memerlukan pemrosesan PHP-FPM, menambah overhead CPU.
-# Implikasi:
-#    - Untuk konten dinamis, optimalkan caching atau gunakan load balancer.
-#    - Untuk file statis, sudah optimal.
+# --- 3. Menjalankan Tes ApacheBench ---
+echo ""
+echo "--------------------------------------------------------"
+echo " [ Tes 1/2 ] Menjalankan Uji Beban Dinamis: /app/"
+echo " (Perintah: ab -n 500 -c 10 http://www.k31.com/app/)"
+echo "--------------------------------------------------------"
+ab -n 500 -c 10 http://www.k31.com/app/
 
-# ================================
-# Selesai
-# ================================
+echo ""
+echo "--------------------------------------------------------"
+echo " [ Tes 2/2 ] Menjalankan Uji Beban Statis: /static/"
+echo " (Perintah: ab -n 500 -c 10 http://www.k31.com/static/)"
+echo "--------------------------------------------------------"
+ab -n 500 -c 10 http://www.k31.com/static/
+
+echo ""
+echo "--------------------------------------------------------"
+echo "✅  Skrip Soal 15 Selesai."
+echo "Ambil screenshot dari kedua hasil tes di atas."
+echo "--------------------------------------------------------"
+echo ""
