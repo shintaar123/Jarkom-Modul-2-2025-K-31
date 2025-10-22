@@ -1164,23 +1164,67 @@ Sirion adalah penghubung antara dunia statis dan dinamis. Konfigurasikan **rever
 Akses dilakukan melalui hostname **www.k31.com** atau **sirion.k31.com**.
 
 #### Tujuan
-Membuat **Sirion** berfungsi sebagai **Reverse Proxy** yang mengarahkan request ke dua backend berbeda berdasarkan path menggunakan **Nginx**.
+Tujuan: Mengkonfigurasi node Sirion (10.79.3.2) sebagai reverse proxy untuk domain www.k31.com. Sirion akan menjadi "gerbang" yang menerima trafik dan meneruskannya ke server backend yang sesuai berdasarkan path URL:
 
-#### Step by Step
-**DI SIRION**
+http://www.k31.com/static/... → Diteruskan ke Lindon (10.79.3.5)
 
----
+http://www.k31.com/app/... → Diteruskan ke Vingilot (10.79.3.6)
 
-1️⃣ **Bersihkan konfigurasi lama**
+Konfigurasi (di Sirion):
 
-Hapus konfigurasi default agar tidak bentrok dan buat folder untuk halaman utama.
+Nginx diinstal di Sirion dan file /etc/nginx/sites-available/reverse-proxy.conf dibuat dengan isi sebagai berikut:
+
+Nginx
 
 ```bash
-rm -f /etc/nginx/sites-enabled/*
-rm -f /etc/nginx/sites-available/*
-mkdir -p /var/www/sirion
-mkdir -p /var/log/nginx/
+# Definisikan backend server
+upstream static_backend {
+    server 10.79.3.5; # Lindon
+}
+upstream app_backend {
+    server 10.79.3.6; # Vingilot
+}
+
+server {
+    listen 80;
+    server_name www.k31.com sirion.k31.com;
+
+    access_log /var/log/nginx/reverse_access.log;
+    error_log  /var/log/nginx/reverse_error.log;
+
+    # Aturan routing untuk /static/
+    location /static/ {
+        # proxy_pass dengan trailing slash (http://.../)
+        # akan menghapus /static/ dari path sebelum dikirim
+        proxy_pass http://static_backend/;
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Aturan routing untuk /app/
+    location /app/ {
+        # proxy_pass dengan trailing slash (http://.../)
+        # akan menghapus /app/ dari path
+        proxy_pass http://app_backend/;
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
 ```
+Konfigurasi ini kemudian diaktifkan menggunakan ```ln -sf ...``` dan Nginx di-restart.
+
+Hasil Verifikasi
+Pengujian dilakukan dari node klien (misal: Earendil) untuk mengakses backend melalui reverse proxy (Sirion).
+
+1. Tes Rute Statis (ke Lindon) Perintah ini membuktikan bahwa www.k31.com/static/annals/ berhasil diteruskan oleh Sirion ke Lindon, yang mengembalikan directory listing dari Nomor 9.
+
+Bash
+
+# Di Earendil
+```curl http://www.k31.com/static/annals/```
+<img width="1109" height="283" alt="Image" src="https://github.com/user-attachments/assets/567c0745-f90d-46c5-893a-53f5c8696913" />
 
 # REVISI
 #### Permasalahan Awal
