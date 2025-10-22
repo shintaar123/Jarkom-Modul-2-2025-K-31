@@ -1,100 +1,89 @@
 #!/bin/bash
-# ===========================================
-# Soal 14: Catatan Kedatangan yang Jujur 📝
-# Konfigurasi Sirion (Proxy) & Vingilot (Backend)
-# untuk mencatat IP asli klien menggunakan X-Forwarded-For
-# ===========================================
+#
+# Skrip Pengerjaan Soal 14 - Konfigurasi Real IP (Vingilot)
+#
+# Skrip ini akan mengkonfigurasi Nginx di VINGILOT untuk
+# membaca IP Klien asli dari header X-Real-IP yang dikirim Sirion.
+#
 
-echo "=== [1/4] Backup konfigurasi lama ==="
-cp /etc/nginx/sites-available/reverse-proxy /etc/nginx/sites-available/reverse-proxy.bak 2>/dev/null
-cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak 2>/dev/null
-cp /etc/nginx/sites-available/app.k31.com /etc/nginx/sites-available/app.k31.com.bak 2>/dev/null
+# Hentikan skrip jika ada perintah yang gagal
+set -e
 
-echo "=== [2/4] Menulis ulang konfigurasi reverse proxy di Sirion ==="
-cat <<'EOF' > /etc/nginx/sites-available/reverse-proxy
-# Blok untuk menangani akses non-kanonikal (IP & hostname)
-server {
-    listen 80;
-    listen 443 ssl;
-    server_name 10.79.3.2 sirion.k31.com;
+echo "[Soal 14] Memulai skrip di Vingilot..."
 
-    ssl_certificate /etc/nginx/ssl/nginx.crt;
-    ssl_certificate_key /etc/nginx/ssl/nginx.key;
+# --- 1. Memodifikasi /etc/nginx/nginx.conf ---
+# Kita tambahkan 3 baris (set_real_ip_from, real_ip_header)
+# Skrip ini mengecek dulu agar tidak duplikat
 
-    return 301 https://www.k31.com$request_uri;
-}
+CONFIG_FILE="/etc/nginx/nginx.conf"
+REAL_IP_CONFIG="\
+    # --- TAMBAHAN SOAL 14: Konfigurasi Real IP ---\n\
+    set_real_ip_from 10.79.3.2;   # IP Sirion (Proxy Tepercaya)\n\
+    real_ip_header X-Real-IP;\n\
+    # --- BATAS TAMBAHAN ---\n"
 
-# Blok untuk mengalihkan HTTP ke HTTPS (nama kanonikal)
-server {
-    listen 80;
-    server_name www.k31.com k31.com;
-    return 301 https://$host$request_uri;
-}
+if grep -q "real_ip_header X-Real-IP;" "$CONFIG_FILE"; then
+    echo "[Soal 14] Konfigurasi Real-IP sudah ada di $CONFIG_FILE."
+else
+    echo "[Soal 14] Menambahkan konfigurasi Real-IP ke $CONFIG_FILE..."
+    # Menambahkan konfigurasi Real-IP di dalam blok http {},
+    # tepat sebelum baris 'include /etc/nginx/sites-enabled/*'
+    sed -i "/include \/etc\/nginx\/sites-enabled\//i $REAL_IP_CONFIG" "$CONFIG_FILE"
+fi
 
-# Blok utama HTTPS untuk proxy
-server {
-    listen 443 ssl;
-    server_name www.k31.com k31.com;
 
-    ssl_certificate /etc/nginx/ssl/nginx.crt;
-    ssl_certificate_key /etc/nginx/ssl/nginx.key;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
-    ssl_prefer_server_ciphers off;
-
-    access_log /var/log/nginx/reverse-access.log;
-    error_log /var/log/nginx/reverse-error.log;
-
-    location /static/ {
-        proxy_pass http://10.79.3.5/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    location /app/ {
-        proxy_pass http://10.79.3.6/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        # Titipkan IP asli klien
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    location / {
-        root /var/www/sirion;
-        index index.html;
-    }
-}
-EOF
-
-echo "=== [3/4] Konfigurasi Vingilot untuk membaca header X-Forwarded-For ==="
-# Tambahkan format log baru di nginx.conf
-sed -i '/http {/a \
-    # Logging format untuk koneksi via proxy\n    log_format proxied '\''$http_x_forwarded_for - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'\'';\n' /etc/nginx/nginx.conf
-
-# Edit file site app.k31.com agar pakai log_format proxied
-cat <<'EOF' > /etc/nginx/sites-available/app.k31.com
+# --- 2. Memperbaiki Konfigurasi 'app.k31.com' ---
+# Kita timpa file ini untuk memastikan 'access_log' ada (memperbaiki error)
+echo "[Soal 14] Memperbaiki /etc/nginx/sites-available/app.k31.com..."
+cat > /etc/nginx/sites-available/app.k31.com <<'EOF'
 server {
     listen 80;
     server_name app.k31.com;
-
     root /var/www/app;
-    index index.html;
+    index index.php;
 
-    access_log /var/log/nginx/app_access.log proxied;
+    # --- INI WAJIB ADA UNTUK SOAL 14 ---
+    access_log /var/log/nginx/app_access.log;
     error_log  /var/log/nginx/app_error.log;
+    # -----------------------------------
 
     location / {
-        try_files $uri $uri/ =404;
+        try_files $uri $uri/ /index.php?$args;
+    }
+    location = /about {
+        rewrite ^ /about.php last;
+    }
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        # Pastikan path socket ini benar!
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
     }
 }
 EOF
+echo "[Soal 14] File 'app.k31.com' berhasil diperbaiki."
 
-echo "=== [4/4] Uji konfigurasi dan reload Nginx ==="
-nginx -t && systemctl restart nginx
+# --- 3. Mengaktifkan Site dan Menonaktifkan Default ---
+echo "[Soal 14] Mengaktifkan site 'app.k31.com'..."
+ln -sf /etc/nginx/sites-available/app.k31.com /etc/nginx/sites-enabled/
 
-echo "✅ Konfigurasi Soal 14 selesai."
-echo "Silakan uji dengan: curl -k https://www.k31.com/app/"
-echo "Lalu periksa log di Vingilot: tail -n 1 /var/log/nginx/app_access.log"
-echo "Jika IP yang muncul adalah IP Earendil (10.79.1.2), konfigurasi BERHASIL 🎉"
+echo "[Soal 14] Menonaktifkan site 'default'..."
+rm -f /etc/nginx/sites-enabled/default
+
+# --- 4. Tes dan Restart Nginx ---
+echo "[Soal 14] Mengetes sintaks konfigurasi Nginx..."
+nginx -t
+# Jika 'nginx -t' gagal, 'set -e' akan menghentikan skrip di sini
+
+echo "[Soal 14] Merestart layanan Nginx..."
+service nginx restart
+
+echo ""
+echo "--------------------------------------------------------"
+echo "✅  Skrip Soal 14 Selesai. Vingilot kini siap mencatat IP asli."
+echo "--------------------------------------------------------"
+echo "Lakukan verifikasi:"
+echo "1. Dari EARENDIL: curl http://www.k31.com/app/"
+echo "2. Kembali ke VINGILOT ini, jalankan:"
+echo "   tail -n 1 /var/log/nginx/app_access.log"
+echo ""
