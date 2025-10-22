@@ -1699,13 +1699,130 @@ dig morgoth.k31.com
 
 
 
+## Nomor 19
+#### Soal
+Pelabuhan diperluas bagi para pelaut. Tambahkan havens.<xxxx>.com sebagai CNAME → www.<xxxx>.com, lalu akses layanan melalui hostname tersebut dari dua klien berbeda untuk memastikan resolusi dan rute aplikasi berfungsi.
+
+Tujuan: Menambahkan hostname alias baru havens.k31.com yang menunjuk ke hostname kanonik www.k31.com (Sirion). Tujuannya adalah memverifikasi bahwa reverse proxy (Sirion) mengenali dan melayani alias baru ini dengan benar.
+
+Konfigurasi (di Tirion & Sirion):
+
+Di Tirion (Master DNS): File zona db.k31.com diedit untuk menambahkan CNAME baru. Nomor Serial SOA juga dinaikkan untuk sinkronisasi.
+```
+DNS Zone file
+
+# ... (File db.k31.com) ...
+# ... (Serial SOA dinaikkan, misal: 2025101205) ...
+
+; --- TAMBAHAN UNTUK SOAL 19 ---
+havens   IN  CNAME   www
+; --- BATAS TAMBAHAN ---
+```
+
+Layanan BIND9 di Tirion dan Valmar kemudian di-restart.
+
+Di Sirion (Reverse Proxy): Karena adanya kanonisasi dari Nomor 13, akses ke havens.k31.com awalnya gagal (Redirect 301). Konfigurasi Nginx di Sirion (reverse-proxy.conf) harus diperbarui agar menerima havens.k31.com sebagai hostname yang valid.
+```
+Nginx
+
+# Di dalam blok server { ... } kanonik (bukan default_server)
+
+# DIUBAH DARI: server_name www.k31.com;
+# MENJADI:
+server_name www.k31.com havens.k31.com;
+```
+
+Layanan Nginx di Sirion kemudian di-restart.
+
+Hasil Verifikasi
+Pengujian dilakukan dari dua klien berbeda (Earendil dan Elrond) untuk memastikan alias baru berfungsi untuk semua rute proxy.
+
+1. Tes dari Klien 1: Earendil (Rute Statis) Pertama, dig digunakan untuk memastikan DNS CNAME ter-resolve dengan benar, lalu curl digunakan untuk mengakses rute /static/.
+```
+Bash
+
+# Di Earendil:
+dig havens.k31.com
+curl http://havens.k31.com/static/annals/
+```
+<img width="1091" height="618" alt="Image" src="https://github.com/user-attachments/assets/f5cdc356-c9bb-4727-b3e8-fb2c65cb73bf" />
+[SCREENSHOT 1: Tampilkan output digdancurldi Earendil. Outputdigharus menunjukkan CNAME chain (havens -> www -> sirion -> 10.79.3.2). Outputcurl harus menunjukkan directory listing HTML dari Lindon.]
+
+2. Tes dari Klien 2: Elrond (Rute Dinamis) Pengujian kedua dari klien berbeda (Elrond) untuk mengakses rute dinamis /app/ melalui alias yang sama.
+```
+
+Bash
+
+# Di Elrond:
+curl http://havens.k31.com/app/
+```
+<img width="961" height="218" alt="Image" src="https://github.com/user-attachments/assets/9e55576a-335b-4bb5-94b4-5e15c6177b16" />
+[SCREENSHOT 2: Tampilkan output curl di Elrond. Screenshot harus menunjukkan halaman "Welcome to app.k31.com" yang di-render oleh Vingilot (backend dinamis).]
 
 
 
 
+## Nomor 20
+#### Soal
+Kisah ditutup di beranda Sirion. Sediakan halaman depan bertajuk “War of Wrath: Lindon bertahan” yang memuat tautan ke /app dan /static. Pastikan seluruh klien membuka beranda dan menelusuri kedua tautan tersebut menggunakan hostname (mis. www.<xxxx>.com), bukan IP address.
+
+Tujuan: Mengganti halaman default (teks) di reverse proxy (Sirion) dengan halaman index.html kustom. Halaman ini harus berisi judul "War of Wrath: Lindon bertahan" dan tautan navigasi ke layanan backend (/app/ dan /static/).
+
+Konfigurasi (di Sirion):
+
+Pembuatan Halaman HTML: File index.html baru dibuat di /var/www/html/ pada node Sirion. File ini berisi judul yang diminta dan tautan HTML ke /app/ (dinamis) dan /static/annals/ (statis).
+
+Modifikasi Nginx: Konfigurasi Nginx di Sirion (reverse-proxy.conf) dimodifikasi. Blok location / { ... } (di dalam server block kanonik www.k31.com) diubah agar menyajikan file dari root /var/www/html; alih-alih mengembalikan teks.
+```
+Nginx
+
+# Di dalam blok server { server_name www.k31.com havens.k31.com; }
+
+# DIUBAH DARI: location / { return 200 "..."; }
+# MENJADI:
+location / {
+    root /var/www/html;
+    index index.html;
+    try_files $uri $uri/ =404;
+}
+```
+
+Layanan Nginx di Sirion kemudian di-restart.
+
+Hasil Verifikasi
+Pengujian dilakukan dari dua klien berbeda untuk memastikan beranda dan tautannya berfungsi melalui hostname kanonik.
+
+1. Tes Klien 1 (Earendil): Cek Beranda & Tautan Statis Pengujian pertama dari Earendil memverifikasi halaman beranda baru dan tautan ke backend statis (Lindon).
+```
+Bash
+
+# Di Earendil:
+# 1. Tes Beranda
+curl http://www.k31.com/
+
+# 2. Tes Tautan Statis
+curl http://www.k31.com/static/annals/
+```
+<img width="1046" height="622" alt="Image" src="https://github.com/user-attachments/assets/78cb0de5-0b46-4a44-845d-d0d6cb440f2e" />
+<img width="1092" height="267" alt="Image" src="https://github.com/user-attachments/assets/e476c755-ba53-490d-b444-70fd00e58646" />
 
 
+[SCREENSHOT 1: Tampilkan output dari kedua perintah curl di Earendil. Output pertama harus berisi kode HTML "War of Wrath: Lindon bertahan". Output kedua harus berisi *directory listing* HTML dari Lindon.]
 
+2. Tes Klien 2 (Elrond): Cek Beranda (via Alias) & Tautan Dinamis Pengujian kedua dari Elrond memverifikasi bahwa beranda juga berfungsi pada hostname alias (havens.k31.com) dan tautan ke backend dinamis (Vingilot) berfungsi.
+```
+Bash
+
+# Di Elrond:
+# 1. Tes Beranda (via alias)
+curl http://havens.k31.com/
+
+# 2. Tes Tautan Dinamis
+curl http://havens.k31.com/app/
+```
+<img width="938" height="617" alt="Image" src="https://github.com/user-attachments/assets/2edcf2b1-ac5f-46c9-bc47-74dfe63efaa5" />
+<img width="940" height="134" alt="Image" src="https://github.com/user-attachments/assets/32141b1e-92d4-489a-8a3f-861302c53c2d" />
+[SCREENSHOT 2: Tampilkan output dari kedua perintah curl di Elrond. Output pertama harus berisi kode HTML "War of Wrath". Output kedua harus berisi "Welcome to app.k31.com" yang di-render oleh Vingilot.]
 
 
 
