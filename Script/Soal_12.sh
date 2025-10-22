@@ -1,60 +1,69 @@
 #!/bin/bash
-# Soal_12.sh - HTTPS Reverse Proxy di Sirion
+#
+# Skrip Pengerjaan Soal 12 - Proteksi /admin/ (Basic Auth)
+#
+# Skrip ini akan:
+# 1. Menginstal apache2-utils (untuk htpasswd).
+# 2. Membuat file password di /etc/nginx/.htpasswd (user: admin, pass: adminpass123).
+# 3. Memodifikasi konfigurasi Nginx untuk memproteksi 'location /admin/'.
+#
+# *ASUMSI: Dijalankan setelah Soal 11 selesai.*
+#
 
-# Instalasi dan pembuatan sertifikat SSL
-apt update && apt install openssl -y
-mkdir -p /etc/nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
--keyout /etc/nginx/ssl/nginx.key \
--out /etc/nginx/ssl/nginx.crt
+# Hentikan skrip jika ada perintah yang gagal
+set -e
 
-# Konfigurasi Nginx untuk HTTPS
-cat > /etc/nginx/sites-available/reverse-proxy <<'EOF'
+echo "[Soal 12] Memulai instalasi apache2-utils..."
+apt-get update > /dev/null
+apt-get install -y apache2-utils > /dev/null
+echo "[Soal 12] apache2-utils berhasil diinstal."
+
+# --- 2. Membuat File Password ---
+echo "[Soal 12] Membuat file password di /etc/nginx/.htpasswd..."
+# -c = Buat file baru
+# -b = Mode batch (password dari command line)
+# -B = Gunakan Bcrypt
+htpasswd -cbB /etc/nginx/.htpasswd admin adminpass123
+echo "[Soal 12] File .htpasswd berhasil dibuat (user: admin)."
+
+# --- 3. Memodifikasi Konfigurasi Nginx ---
+echo "[Soal 12] Memodifikasi /etc/nginx/sites-available/reverse-proxy.conf..."
+# Kita timpa file konfigurasi dari Soal 11 dengan versi baru
+# yang sudah menyertakan blok location /admin/
+cat > /etc/nginx/sites-available/reverse-proxy.conf <<'EOF'
+# Definisikan backend server
+upstream static_backend {
+    # Lindon (10.79.3.5)
+    server 10.79.3.5;
+}
+upstream app_backend {
+    # Vingilot (10.79.3.6)
+    server 10.79.3.6;
+}
+
 server {
     listen 80;
-    server_name www.k31.com k31.com;
-    return 301 https://$host$request_uri;
-}
+    # Ini adalah state dari Soal 11 (sebelum kanonisasi Soal 13)
+    server_name www.k31.com sirion.k31.com;
 
-server {
-    listen 443 ssl;
-    server_name www.k31.com k31.com;
+    access_log /var/log/nginx/reverse_access.log;
+    error_log  /var/log/nginx/reverse_error.log;
 
-    ssl_certificate /etc/nginx/ssl/nginx.crt;
-    ssl_certificate_key /etc/nginx/ssl/nginx.key;
+    # --- BLOK BARU (NOMOR 12) ---
+    location /admin/ {
+        # 1. Pesan yang muncul di login prompt
+        auth_basic "Restricted Admin Area";
+        
+        # 2. Path ke file password
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        
+        # 3. (Asumsi) Admin juga di-proxy ke Vingilot
+        proxy_pass http://app_backend/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    # --- BATAS BLOK BARU ---
 
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
-    ssl_prefer_server_ciphers off;
-
-    access_log /var/log/nginx/reverse-access.log;
-    error_log /var/log/nginx/reverse-error.log;
-
+    # Blok dari Soal 11
     location /static/ {
-        proxy_pass http://10.79.3.5/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    location /app/ {
-        proxy_pass http://10.79.3.6/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    location / {
-        root /var/www/sirion;
-        index index.html;
-    }
-}
-EOF
-
-# Aktifkan konfigurasi dan terapkan
-ln -sf /etc/nginx/sites-available/reverse-proxy /etc/nginx/sites-enabled/reverse-proxy
-nginx -t
-nginx -s reload
-
-# Tes dari client (jalankan manual dari Earendil/Elrond)
-# curl -I http://www.k31.com
-# curl -k https://www.k31.com/app/
-# curl -k https://www.k31.com/static/annals/
+        proxy_pass http://static_backend/;
