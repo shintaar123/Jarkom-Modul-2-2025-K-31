@@ -1496,22 +1496,159 @@ ab -n 500 -c 10 http://www.k31.com/static/
 <img width="1911" height="1029" alt="Image" src="https://github.com/user-attachments/assets/b015a081-ebb3-4255-a44f-79daa7c60f14" />
 (Ambil screenshot penuh dari output di terminal Elrond untuk tes kedua ini.)
 
-3. Rangkuman Hasil
-
-Salin angka-angka kunci dari screenshot Anda ke dalam tabel ini.
-Endpoint,Total Requests,Concurrency,Requests/Second,Time per Request (ms),Failed Requests
-/app/ (Dinamis),500,10,"[Isi dari ""Requests per second""]","[Isi dari ""Time per request""]","[Isi dari ""Failed requests""]"
-/static/ (Statis),500,10,"[Isi dari ""Requests per second""]","[Isi dari ""Time per request""]","[Isi dari ""Failed requests""]"
 
 
 
 
+## Nomor 16
+#### Soal
+Badai mengubah garis pantai. Ubah A record lindon.<xxxx>.com ke alamat baru (ubah IP paling belakangnya saja agar mudah), naikkan SOA serial di Tirion (ns1) dan pastikan Valmar (ns2) tersinkron, karena static.<xxxx>.com adalah CNAME → lindon.<xxxx>.com, seluruh akses ke static.<xxxx>.com mengikuti alamat baru, tetapkan TTL = 30 detik untuk record yang relevan dan verifikasi tiga momen yakni sebelum perubahan (mengembalikan alamat lama), sesaat setelah perubahan namun sebelum TTL kedaluwarsa (masih alamat lama karena cache), dan setelah TTL kedaluwarsa (beralih ke alamat baru).
+Tujuan: Menguji proses propagasi perubahan DNS dari Master (Tirion) ke Slave (Valmar) dan mengamati efek caching DNS di klien (Earendil) dengan mengubah A record untuk lindon.k31.com (yang akan otomatis mempengaruhi CNAME static.k31.com).
+
+Skenario:
+
+IP Lama Lindon: 10.79.3.5
+
+IP Baru Lindon: 10.79.3.50
+
+TTL yang Ditetapkan: 30 detik
+
+Persiapan: Mengatur TTL Rendah
+Sebelum pengujian, TTL pada file zona db.k31.com di Tirion diatur ke 30 detik (baik $TTL global maupun Minimum TTL di SOA). Nomor serial dinaikkan dan BIND di-restart. Klien (Earendil) melakukan query awal untuk mengisi cache-nya dengan TTL 30 detik ini.
+```
+Bash
+
+# Di Tirion
+nano /etc/bind/zones/db.k31.com
+# (Mengubah $TTL 604800 -> 30)
+# (Mengubah Minimum TTL -> 30)
+# (Menaikkan Serial, misal: 2025101202)
+pkill named || true; /usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+```
+```
+Bash
+
+# Di Earendil (untuk 'membilas' cache lama)
+dig static.k31.com > /dev/null
+sleep 30
+```
+
+Hasil Verifikasi
+Pengujian ini menangkap tiga momen penting secara berurutan.
+
+1. Momen 1: Sebelum Perubahan (Cache Diisi) Klien (Earendil) melakukan query. DNS (Tirion) merespons dengan IP LAMA dan memberi tahu klien untuk menyimpan jawaban ini di cache selama 30 detik.
+```
+Bash
+# Di Earendil:
+dig static.k31.com
+```
+
+<img width="1611" height="546" alt="Image" src="https://github.com/user-attachments/assets/14250aa2-5700-4ef5-9926-f4275a0389ca" />
+[SCREENSHOT 1: Output dig di Earendil. Screenshot harus jelas menunjukkan 'static.k31.com' CNAME ke 'lindon.k31.com', dan 'lindon.k31.com' A ke IP LAMA '10.79.3.5' dengan TTL '30'.]
+
+2. Momen 2: Selama Perubahan (Cache Aktif) Segera setelah Momen 1:
+
+Di Tirion: IP lindon diubah ke 10.79.3.50, serial SOA dinaikkan, dan BIND di-restart.
+
+Di Earendil: Query dig dijalankan lagi sebelum 30 detik dari Momen 1 habis.
+```
+Bash
+
+# Di Earendil (dijalankan < 30 detik setelah Momen 1):
+dig static.k31.com
+```
+<img width="956" height="527" alt="Image" src="https://github.com/user-attachments/assets/f62b96a3-aa7d-42f9-a5ed-8029c99b6e7e" />
+[SCREENSHOT 2: Output digdi Earendil. Screenshot harus menunjukkan bahwa Earendil **MASIH** melihat **IP LAMA '10.79.3.5'**. Ini membuktikan klien menggunakan *cache*. Perhatikan sisa TTL-nya, yang akan lebih kecil dari 30 (misal:14).]
+
+3. Momen 3: Setelah TTL Kedaluwarsa (Cache Habis) Klien (Earendil) menunggu 30 detik agar cache kedaluwarsa, lalu melakukan query lagi. Klien sekarang terpaksa bertanya lagi ke server DNS (Tirion), yang memberikan jawaban baru.
+```
+# Di Earendil:
+echo "Menunggu 30 detik hingga cache TTL kedaluwarsa..."
+sleep 30
+dig static.k31.com
+```
+Bash
+
+<img width="940" height="582" alt="Image" src="https://github.com/user-attachments/assets/fe5efe73-8903-4bbd-9d79-9f35bb86c4a6" />
+[SCREENSHOT 3: Output dig di Earendil setelah 'sleep 30'. Screenshot harus jelas menunjukkan 'lindon.k31.com' sekarang mengarah ke **IP BARU '10.79.3.50'** dengan TTL '30' yang baru.]
+
+4. Verifikasi Sinkronisasi Slave (di Valmar) Sebagai langkah terakhir, kita cek apakah Valmar (Slave) berhasil menarik pembaruan (SOA serial baru) dari Tirion.
+```
+Bash
+
+# Di Valmar (mengecek DNS-nya sendiri):
+dig @localhost static.k31.com
+```
+<img width="924" height="537" alt="Image" src="https://github.com/user-attachments/assets/7f023090-cc18-4f1b-b238-edd701396d89" />
+[SCREENSHOT 4: Output dig di Valmar. Screenshot harus membuktikan bahwa Valmar juga sudah tersinkronisasi dan mengembalikan **IP BARU '10.79.3.50'**.]
 
 
 
 
+## Nomor 17
+#### Soal
+Andaikata bumi bergetar dan semua tertidur sejenak, mereka harus bangkit sendiri. Pastikan layanan inti bind9 di ns1/ns2, nginx di Sirion/Lindon, dan PHP-FPM di Vingilot autostart saat reboot, lalu verifikasi layanan kembali menjawab sesuai fungsinya.
 
+Tujuan: Memastikan semua layanan inti (bind9 di Tirion/Valmar, nginx di Sirion/Lindon, dan nginx/php-fpm di Vingilot) terdaftar untuk autostart sehingga dapat menyala kembali secara otomatis setelah server reboot.
 
+Langkah 1: Mendaftarkan Layanan (systemctl enable)
+Perintah systemctl enable <service> dijalankan di setiap node yang relevan untuk mendaftarkan layanan ke init system.
+
+Di Tirion (ns1): systemctl enable bind9
+
+Di Valmar (ns2): systemctl enable bind9
+
+Di Sirion (Proxy): systemctl enable nginx
+
+Di Lindon (Static): systemctl enable nginx
+
+Di Vingilot (Dynamic): systemctl enable nginx dan systemctl enable php8.4-fpm (atau versi PHP Anda).
+
+[SCREENSHOT 1: Tampilkan contoh output perintah systemctl enable ...di salah satu server. Output yang berisiSyntaxWarning dari Python adalah yang diharapkan, ini menunjukkan perintah telah dijalankan.]
+
+<img width="1006" height="253" alt="Image" src="https://github.com/user-attachments/assets/0b3df4d2-5846-4446-ac04-489e7c3f6cc5" />
+<img width="969" height="255" alt="Image" src="https://github.com/user-attachments/assets/98c6255a-85b0-4836-8828-2f0252bba93e" />
+<img width="758" height="255" alt="Image" src="https://github.com/user-attachments/assets/cd4024a8-7c7f-4f4f-8b18-1b0b9c4ece77" />
+<img width="758" height="255" alt="Image" src="https://github.com/user-attachments/assets/7a3efc44-65a9-405f-be56-41623d7b1ab9" />
+
+Langkah 2: Upaya Reboot dan Masalah systemd
+Langkah verifikasi selanjutnya adalah me-reboot server. Namun, upaya ini gagal karena image container yang digunakan.
+```
+Bash
+
+# Perintah yang dijalankan di server (misal: Vingilot):
+systemctl reboot
+```
+<img width="919" height="236" alt="Image" src="https://github.com/user-attachments/assets/e61c031e-37a9-46b6-8dcc-2d30cdb0e1b1" />
+[SCREENSHOT 2: Tampilkan output error System has not been booted with systemd as init system (PID 1).Error ini membuktikan bahwasystemctl enabletidak akan berfungsi karena tidak adasystemd untuk mengelola *autostart*.]
+
+Langkah 3: Simulasi Verifikasi (Restart Manual)
+Karena reboot otomatis tidak dimungkinkan, skenario "layanan pulih" disimulasikan dengan menyalakan kembali semua layanan secara manual di 5 server.
+
+Di Tirion/Valmar: /usr/sbin/named -c /etc/bind/named.conf -f -u bind &
+
+Di Sirion/Lindon: service nginx restart
+
+Di Vingilot: service php8.4-fpm restart && service nginx restart
+
+Langkah 4: Verifikasi Fungsionalitas Layanan (dari Earendil)
+Setelah semua layanan dinyalakan (secara manual), pengujian fungsionalitas penuh dilakukan dari node Earendil untuk membuktikan bahwa semua infrastruktur telah "pulih" dan berfungsi.
+```
+Bash
+
+# Perintah verifikasi yang dijalankan di Earendil:
+echo "--- Tes DNS (Tirion/Valmar) ---"
+dig www.k31.com +short
+
+echo "--- Tes Statis (Sirion/Lindon) ---"
+curl http://www.k31.com/static/annals/
+
+echo "--- Tes Dinamis (Sirion/Vingilot) ---"
+curl http://www.k31.com/app/about
+
+```
+
+<img width="1086" height="463" alt="Image" src="https://github.com/user-attachments/assets/285d8702-4103-4b52-8408-da7d978987dd" />
 
 
 
