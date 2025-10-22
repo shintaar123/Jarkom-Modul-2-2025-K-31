@@ -1,74 +1,93 @@
 #!/bin/bash
-# =============================================
-# SOAL 11 - Reverse Proxy Nginx
-# Host: SIRION (10.79.3.2)
-# =============================================
+#
+# Skrip Pengerjaan Soal 11 - Konfigurasi Reverse Proxy (Sirion)
+#
+# Skrip ini akan mengkonfigurasi node SIRION sebagai reverse proxy
+# yang me-routing /static/ ke Lindon dan /app/ ke Vingilot.
+#
 
-echo "===== [1] Bersihkan konfigurasi lama ====="
-rm -f /etc/nginx/sites-enabled/*
-rm -f /etc/nginx/sites-available/*
-mkdir -p /var/www/sirion
-mkdir -p /var/log/nginx/
+# Hentikan skrip jika ada perintah yang gagal
+set -e
 
-echo "===== [2] Buat halaman tes utama ====="
-echo "<h1>Welcome to Sirion Reverse Proxy</h1><br><a href='/app/'>App</a> | <a href='/static/'>Static</a>" > /var/www/sirion/index.html
+# --- 1. Instalasi Nginx ---
+echo "[Soal 11] Memulai instalasi Nginx..."
+apt-get update > /dev/null
+apt-get install -y nginx > /dev/null
+echo "[Soal 11] Nginx berhasil diinstal."
 
-echo "===== [3] Buat konfigurasi reverse proxy ====="
-cat > /etc/nginx/sites-available/reverse-proxy <<'EOF'
+# --- 2. Membuat File Konfigurasi Reverse Proxy ---
+echo "[Soal 11] Membuat file konfigurasi di /etc/nginx/sites-available/reverse-proxy.conf..."
+cat > /etc/nginx/sites-available/reverse-proxy.conf <<'EOF'
+# Definisikan backend server
+upstream static_backend {
+    # Lindon (10.79.3.5)
+    server 10.79.3.5;
+}
+upstream app_backend {
+    # Vingilot (10.79.3.6)
+    server 10.79.3.6;
+}
+
 server {
     listen 80;
     server_name www.k31.com sirion.k31.com;
 
-    # Route ke Lindon (web statis)
+    access_log /var/log/nginx/reverse_access.log;
+    error_log  /var/log/nginx/reverse_error.log;
+
+    # Aturan routing untuk /static/
     location /static/ {
-        proxy_pass http://10.79.3.5/;
+        # Trailing slash (http://.../) penting untuk menghapus /static/
+        proxy_pass http://static_backend/;
+        
+        # Teruskan header yang diminta di soal
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # Route ke Vingilot (web dinamis)
+    # Aturan routing untuk /app/
     location /app/ {
-        proxy_pass http://10.79.3.6/;
+        # Trailing slash (http://.../) penting untuk menghapus /app/
+        proxy_pass http://app_backend/;
+        
+        # Teruskan header yang diminta di soal
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # Halaman utama
+    # (Opsional) Halaman root default untuk Sirion
     location / {
-        root /var/www/sirion;
-        index index.html;
+        return 200 "Sirion Reverse Proxy [Soal 11] Aktif.\nCoba /static/annals/ atau /app/about\n";
+        add_header Content-Type text/plain;
     }
 }
 EOF
+echo "[Soal 11] File konfigurasi berhasil dibuat."
 
-echo "===== [4] Aktifkan konfigurasi dan reload Nginx ====="
-ln -sf /etc/nginx/sites-available/reverse-proxy /etc/nginx/sites-enabled/reverse-proxy
+# --- 3. Mengaktifkan Konfigurasi ---
+echo "[Soal 11] Mengaktifkan site 'reverse-proxy.conf'..."
+# Hapus link lama jika ada, lalu buat yang baru
+ln -sf /etc/nginx/sites-available/reverse-proxy.conf /etc/nginx/sites-enabled/reverse-proxy.conf
+
+echo "[Soal 11] Menonaktifkan site 'default'..."
+rm -f /etc/nginx/sites-enabled/default
+
+# --- 4. Tes dan Restart Nginx ---
+echo "[Soal 11] Mengetes sintaks konfigurasi Nginx..."
 nginx -t
-nginx -s reload
+# Jika 'nginx -t' gagal, 'set -e' akan menghentikan skrip di sini
 
-echo "===== [5] Tes langsung di Sirion ====="
-echo "--> Menguji koneksi backend Lindon (static)"
-curl -s http://127.0.0.1/static/ | head -n 5
-echo "--> Menguji koneksi backend Vingilot (app)"
-curl -s http://127.0.0.1/app/ | head -n 5
-
-echo "===== [6] Tes dari client (Earendil / Elrond) ====="
-echo "Di client, jalankan:"
-echo "curl http://www.k31.com/static/"
-echo "curl http://www.k31.com/app/"
-echo "Hasil yang diharapkan:"
-echo "- /static/ menampilkan konten dari Lindon"
-echo "- /app/ menampilkan konten PHP dari Vingilot"
-
-echo "===== [7] (Opsional) Tambahkan auto-start nginx ====="
-cat > /etc/rc.local <<'EOF'
-#!/bin/bash
+echo "[Soal 11] Merestart layanan Nginx..."
 service nginx restart
-exit 0
-EOF
-chmod +x /etc/rc.local
-bash /etc/rc.local
 
-echo "===== Konfigurasi Reverse Proxy (Soal 11) selesai. ====="
+echo ""
+echo "--------------------------------------------------------"
+echo "✅  Skrip Soal 11 Selesai. Sirion kini menjadi Reverse Proxy."
+echo "--------------------------------------------------------"
+echo "Lakukan verifikasi dari node Earendil/Elrond:"
+echo "  curl http://www.k31.com/static/annals/"
+echo "  curl http://www.k31.com/app/"
+echo "  curl http://www.k31.com/app/about"
+echo ""
