@@ -1311,8 +1311,82 @@ curl http://www.k31.com/admin/ -u admin:adminpass123
 ```
 
 <img width="1100" height="142" alt="Image" src="https://github.com/user-attachments/assets/50c8f50a-b899-435c-90f5-3fea8774504f" />
-(Output yang diharapkan adalah 404 Not Found. Ini BENAR, karena 404 ini dikirim oleh Vingilot (backend) yang tidak memiliki path /admin/. Ini membuktikan autentikasi di Sirion berhasil dan permintaan diteruskan.)
+(Output yang diharapkan adalah <h1>Welcome to app.k31.com</h1>. Ini BENAR. Ini membuktikan autentikasi di Sirion berhasil. Permintaan diteruskan ke Vingilot, dan karena proxy_pass memiliki trailing slash (/), Vingilot me-render halaman index.php (root)-nya.)
 
+
+## Nomor 13
+#### Soal
+“Panggil aku dengan nama,” ujar Sirion kepada mereka yang datang hanya menyebut angka. Kanonisasikan endpoint, akses melalui IP address Sirion maupun sirion.<xxxx>.com harus redirect 301 ke www.<xxxx>.com sebagai hostname kanonik.
+
+Tujuan: Memaksa semua trafik untuk menggunakan satu hostname resmi (kanonik), yaitu www.k31.com. Akses melalui IP address (10.79.3.2) atau hostname non-kanonik (sirion.k31.com) akan dialihkan (redirect) secara permanen (301) ke www.k31.com.
+
+Konfigurasi (di Sirion):
+Konfigurasi Nginx di Sirion (reverse-proxy.conf) diubah menjadi dua blok server terpisah:
+1. Blok Server Non-Kanonik (Baru): Dibuat untuk menangkap trafik yang "salah". Blok ini mendengarkan pada 80 default_server (untuk menangkap akses via IP) dan server_name sirion.k31.com. Tugas satu-satunya adalah mengeluarkan redirect 301.
+```
+Nginx
+
+# Blok BARU untuk menangkap IP dan 'sirion'
+server {
+    listen 80 default_server;
+    server_name sirion.k31.com;
+
+    # Redirect permanen (301) semua request ke 'www'
+    # $request_uri akan menyalin path (misal: /app/)
+    return 301 http://www.k31.com$request_uri;
+}
+```
+
+2. Blok Server Kanonik (Lama): Blok server yang sudah ada (yang berisi location /static/, /app/, dll.) dimodifikasi. server_name-nya diubah menjadi hanya www.k31.com.
+```
+Nginx
+
+# Blok LAMA yang dimodifikasi
+server {
+    listen 80;
+
+    # Hanya 'www.k31.com' yang tersisa di sini
+    server_name www.k31.com;
+
+    # ... (semua 'location' proxy pass ada di sini) ...
+}
+```
+Layanan Nginx kemudian di-restart untuk menerapkan perubahan ini.
+
+Hasil Verifikasi
+Pengujian dilakukan dari node klien (misal: Earendil) menggunakan curl -I untuk melihat header HTTP.
+
+1. Tes Akses via IP (Harus Redirect 301) Perintah ini membuktikan bahwa akses langsung ke IP server 10.79.3.2 akan ditolak dan dialihkan.
+```
+Bash
+
+# Di Earendil
+curl -I http://10.79.3.2/app/
+```
+<img width="1045" height="247" alt="Image" src="https://github.com/user-attachments/assets/e6e7501f-ca56-448b-9948-9c8bd4acdf19" />
+(Output harus jelas menunjukkan HTTP/1.1 301 Moved Permanently dan Location: http://www.k31.com/app/)
+
+2. Tes Akses via Hostname sirion (Harus Redirect 301) Perintah ini membuktikan bahwa akses ke hostname non-kanonik sirion.k31.com juga akan dialihkan.
+```
+Bash
+
+# Di Earendil
+curl -I http://sirion.k31.com/app/
+```
+
+<img width="951" height="246" alt="Image" src="https://github.com/user-attachments/assets/43cbeb83-fe6a-4d54-8e3b-2fbea6473b6a" />
+(Sama seperti tes IP, output harus menunjukkan HTTP/1.1 301 Moved Permanently dan Location: http://www.k31.com/app/)
+
+3. Tes Akses via Hostname Kanonik www (Harus Sukses 200 OK) Perintah ini membuktikan bahwa akses ke hostname kanonik www.k31.com dilayani dengan benar dan tidak di-redirect.
+```
+Bash
+
+# Di Earendil
+curl -I http://www.k31.com/app/
+```
+
+<img width="965" height="247" alt="Image" src="https://github.com/user-attachments/assets/75d68999-ff8f-4f4d-a25b-5713c8520f11" />
+(Output harus menunjukkan HTTP/1.1 200 OK (atau HTTP/2 200 dsb). Ini membuktikan server melayani permintaan dan berhasil mem-proxy-nya ke backend.)
 
 
 
