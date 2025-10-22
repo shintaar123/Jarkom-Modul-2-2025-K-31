@@ -1249,6 +1249,81 @@ curl http://www.k31.com/app/about
 Ada kamar kecil di balik gerbang yakni /admin. Lindungi path tersebut di Sirion menggunakan Basic Auth, akses tanpa kredensial harus ditolak dan akses dengan kredensial yang benar harus diizinkan.
 
 
+Tujuan: Mengamankan path /admin/ di reverse proxy (Sirion) menggunakan HTTP Basic Authentication. Akses ke path ini harus ditolak (401 Unauthorized) kecuali klien menyediakan username dan password yang valid.
+
+Konfigurasi (di Sirion):
+
+1. Paket apache2-utils diinstal di Sirion untuk mendapatkan utility htpasswd.
+2. File password (.htpasswd) dibuat untuk menyimpan kredensial. User admin dengan password adminpass123 ditambahkan:
+```
+Bash
+# Perintah di Sirion
+htpasswd -cbB /etc/nginx/.htpasswd admin adminpass123
+```
+3. File konfigurasi reverse proxy (/etc/nginx/sites-available/reverse-proxy.conf) dimodifikasi untuk menambahkan blok location baru yang mengamankan path /admin/:
+```
+Nginx
+
+# ... (definisi upstream masih ada) ...
+
+server {
+    # ... (listen, server_name, dll masih ada) ...
+
+    # --- BLOK BARU UNTUK NOMOR 12 ---
+    location /admin/ {
+        # Pesan yang akan tampil di dialog login
+        auth_basic "Restricted Admin Area";
+
+        # Path ke file password yang tadi dibuat
+        auth_basic_user_file /etc/nginx/.htpasswd;
+
+        # Jika login sukses, tetap teruskan (proxy) ke backend
+        proxy_pass http://app_backend/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # ... (blok location /static/ dan /app/ masih ada) ...
+}
+```
+4. Layanan Nginx di-restart untuk menerapkan perubahan.
+
+
+Hasil Verifikasi
+Pengujian dilakukan dari node klien (misal: Earendil).
+
+1. Tes Akses Ditolak (401 Unauthorized) Perintah ini menguji akses ke /admin/ tanpa menyertakan kredensial. Server harus menolak akses dengan respons 401 Unauthorized dan mengirimkan header WWW-Authenticate yang meminta login.
+```
+Bash
+
+# Di Earendil
+curl -I http://www.k31.com/admin/
+```
+<img width="889" height="246" alt="Image" src="https://github.com/user-attachments/assets/6cfbaa7a-43b5-4d10-a9b2-a6e6c2b6f3cc" />
+
+2. Tes Akses Diizinkan (Proxy Pass) Perintah ini menguji akses dengan menyertakan kredensial yang benar (-u admin:adminpass123). Sirion harus mengizinkan akses dan meneruskan permintaan ke backend (Vingilot).
+
+Bash
+
+# Di Earendil
+```
+curl http://www.k31.com/admin/ -u admin:adminpass123
+```
+
+<img width="1100" height="142" alt="Image" src="https://github.com/user-attachments/assets/50c8f50a-b899-435c-90f5-3fea8774504f" />
+(Output yang diharapkan adalah 404 Not Found. Ini BENAR, karena 404 ini dikirim oleh Vingilot (backend) yang tidak memiliki path /admin/. Ini membuktikan autentikasi di Sirion berhasil dan permintaan diteruskan.)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
