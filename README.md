@@ -1389,6 +1389,107 @@ curl -I http://www.k31.com/app/
 (Output harus menunjukkan HTTP/1.1 200 OK (atau HTTP/2 200 dsb). Ini membuktikan server melayani permintaan dan berhasil mem-proxy-nya ke backend.)
 
 
+## Nomor 13
+#### Soal
+Di Vingilot, catatan kedatangan harus jujur. Pastikan access log aplikasi di Vingilot mencatat IP address klien asli saat lalu lintas melewati Sirion (bukan IP Sirion).
+
+Tujuan: Memastikan access log di server backend (Vingilot) mencatat IP address klien yang asli (misal: Earendil 10.79.1.2), bukan IP reverse proxy (Sirion 10.79.3.2).
+
+Konfigurasi (di Vingilot):
+
+Untuk mencapai ini, dua file konfigurasi Nginx di Vingilot dimodifikasi:
+
+1. /etc/nginx/nginx.conf: Modul ngx_http_realip_module dikonfigurasi di dalam blok http { ... } untuk "mempercayai" Sirion dan membaca header X-Real-IP yang dikirimkannya.
+```
+Nginx
+
+http {
+    # ... (konfigurasi http lain) ...
+
+    # --- TAMBAHAN SOAL 14: Konfigurasi Real IP ---
+    set_real_ip_from 10.79.3.2;   # IP Sirion (Proxy Tepercaya)
+    real_ip_header X-Real-IP;     # Header yang berisi IP asli
+    # --- BATAS TAMBAHAN ---
+
+    include /etc/nginx/sites-enabled/*;
+}
+```
+
+2. /etc/nginx/sites-available/app.k31.com: Baris access_log ditambahkan ke server block untuk memastikan Vingilot mencatat log ke file kustom yang kita inginkan.
+```
+Nginx
+
+server {
+    # ... (listen, server_name, root, dll) ...
+
+    # Memastikan log dicatat ke file ini
+    access_log /var/log/nginx/app_access.log;
+    error_log  /var/log/nginx/app_error.log;
+
+    # ... (location blocks) ...
+}
+```
+Layanan Nginx di Vingilot kemudian di-restart untuk menerapkan semua perubahan.
+
+
+Hasil Verifikasi
+Verifikasi dilakukan dalam dua langkah: pertama, trafik dibuat dari klien; kedua, log diperiksa di backend.
+
+1. Hasilkan Trafik (dari Earendil) Sebuah permintaan curl dikirim dari Earendil (IP: 10.79.1.2) ke Sirion (proxy), yang kemudian diteruskan ke Vingilot.
+```
+Bash
+
+# Di Earendil
+curl http://www.k31.com/app/
+```
+<img width="949" height="190" alt="Image" src="https://github.com/user-attachments/assets/de922640-3122-4214-bf40-5814dc8d2917" />
+(Output yang diharapkan: <h1>Welcome to app.k31.com</h1>)
+
+2. Periksa Log (di Vingilot) Segera setelah curl di Earendil selesai, file app_access.log di Vingilot diperiksa.
+```
+Bash
+
+# Di Vingilot
+tail -n 1 /var/log/nginx/app_access.log
+```
+<img width="952" height="134" alt="Image" src="https://github.com/user-attachments/assets/ab4367c0-ec1a-47c8-aec3-68c18363a022" />
+(Ini adalah screenshot paling penting. Output harus jelas menunjukkan bahwa IP yang tercatat adalah IP Earendil (10.79.1.2), bukan IP Sirion (10.79.3.2).)
+
+Contoh Output yang Diharapkan:
+10.79.1.2 - - [22/Oct/2025:21:00:00 +0700] "GET / HTTP/1.0" 200 ...
+^-- INI HARUS IP EARENDIL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
